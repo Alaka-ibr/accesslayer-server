@@ -72,7 +72,7 @@ describe('GET /api/v1/creators — response shape consistency across page sizes'
       fetchPage(MAX_PAGE_SIZE),
     ]);
 
-    const topLevelKeys = ['success', 'data'];
+    const topLevelKeys = ['data', 'success'];
     expect(Object.keys(page1).sort()).toEqual(topLevelKeys);
     expect(Object.keys(page10).sort()).toEqual(topLevelKeys);
     expect(Object.keys(page100).sort()).toEqual(topLevelKeys);
@@ -82,7 +82,7 @@ describe('GET /api/v1/creators — response shape consistency across page sizes'
     expect(Object.keys(page10.data).sort()).toEqual(dataKeys);
     expect(Object.keys(page100.data).sort()).toEqual(dataKeys);
 
-    const metaKeys = ['limit', 'offset', 'total', 'hasMore'];
+    const metaKeys = ['hasMore', 'limit', 'offset', 'total'];
     expect(Object.keys(page1.data.meta).sort()).toEqual(metaKeys);
     expect(Object.keys(page10.data.meta).sort()).toEqual(metaKeys);
     expect(Object.keys(page100.data.meta).sort()).toEqual(metaKeys);
