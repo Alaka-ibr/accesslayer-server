@@ -62,6 +62,8 @@ function mockResponse(): Response & { statusCode: number; body: any } {
       return res;
    };
 
+   res.setHeader = () => res;
+
    return res;
 }
 
