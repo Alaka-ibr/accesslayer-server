@@ -1,3 +1,4 @@
+import http from 'http';
 import supertest from 'supertest';
 import app from '../../app';
 import { prisma } from '../../utils/prisma.utils';
@@ -537,5 +538,98 @@ describe('GET /api/v1/creators/:id/webhooks — empty list for creator with no w
     expect(res.body.success).toBe(true);
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.data).toEqual([]);
+  });
+});
+
+describe('webhook retry on 500 response (#578)', () => {
+  let mockServer: http.Server;
+  let mockServerUrl: string;
+  let requestTimestamps: number[];
+  let secondRequestResolve: () => void;
+
+  beforeAll((done) => {
+    let requestCount = 0;
+    requestTimestamps = [];
+
+    mockServer = http.createServer((_req, res) => {
+      requestTimestamps.push(Date.now());
+      requestCount++;
+
+      if (requestCount === 1) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Internal Server Error' }));
+      } else {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        secondRequestResolve();
+      }
+    });
+
+    mockServer.listen(0, '127.0.0.1', () => {
+      const address = mockServer.address() as any;
+      mockServerUrl = `http://127.0.0.1:${address.port}/webhook`;
+      done();
+    });
+  });
+
+  afterAll((done) => {
+    mockServer.close(done);
+  });
+
+  it('retries delivery after a 500 response and succeeds on the second attempt', async () => {
+    const secondRequestPromise = new Promise<void>((resolve) => {
+      secondRequestResolve = resolve;
+    });
+
+    const webhook = await prisma.webhook.create({
+      data: {
+        id: 'webhook-retry-500-test',
+        creatorId,
+        callbackUrl: mockServerUrl,
+        events: { set: ['BUY'] },
+      },
+    });
+
+    const { dispatchWebhookEvent } = await import('./webhook.service');
+
+    await dispatchWebhookEvent({
+      type: 'buy',
+      creatorId,
+      buyerOrSellerAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+      amount: '100',
+      price: '10.5',
+      feePaid: '0.5',
+      timestamp: new Date().toISOString(),
+    });
+
+    // Wait for the retry (second request after backoff)
+    await secondRequestPromise;
+
+    // Allow time for DB writes after the second response
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Assert callback was called twice
+    expect(requestTimestamps.length).toBe(2);
+
+    // Assert second call happened after the configured backoff delay
+    const backoffDelay = requestTimestamps[1] - requestTimestamps[0];
+    expect(backoffDelay).toBeGreaterThanOrEqual(2000);
+
+    // Assert webhook event was delivered successfully after retry
+    const events = await prisma.webhookEvent.findMany({
+      where: { webhookId: webhook.id },
+    });
+    expect(events.length).toBeGreaterThan(0);
+    expect(events[0].status).toBe('DELIVERED');
+    expect(events[0].retryCount).toBe(2);
+
+    // Assert webhook is NOT marked as failing after successful retry
+    const updatedWebhook = await prisma.webhook.findUnique({
+      where: { id: webhook.id },
+    });
+    expect(updatedWebhook?.isFailing).toBe(false);
+
+    await prisma.webhookEvent.deleteMany({ where: { webhookId: webhook.id } });
+    await prisma.webhook.delete({ where: { id: webhook.id } });
   });
 });
