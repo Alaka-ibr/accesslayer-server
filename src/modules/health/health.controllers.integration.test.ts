@@ -43,6 +43,7 @@ function mockResponse(): Response & { statusCode: number; body: any } {
         res.body = payload;
         return res;
     };
+    res.setHeader = () => res;
     return res;
 }
 
