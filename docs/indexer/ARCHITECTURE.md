@@ -149,3 +149,4 @@ Each concern has its own reference document — no duplication here:
 - **Dead-letter queue**: [DLQ_WORKFLOW.md](./DLQ_WORKFLOW.md)
 - **Feature flags and startup validation**: [FEATURE_FLAGS.md](./FEATURE_FLAGS.md)
 - **Contributor invariants**: [CONTRIBUTOR_EXPECTATIONS.md](./CONTRIBUTOR_EXPECTATIONS.md)
+- **Outage and gap recovery**: [RECOVERY.md](./RECOVERY.md)
