@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkOwnershipReadModelConsistency } from './ownershipConsistency.ts';
+import { checkOwnershipReadModelConsistency } from './ownershipConsistency';
 
 test('emits a structured error log when holder balances differ from stored supply', () => {
    const events: Array<Record<string, unknown>> = [];
