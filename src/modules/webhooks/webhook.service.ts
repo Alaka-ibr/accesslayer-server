@@ -8,6 +8,7 @@ import type {
    TradeEvent,
    WebhookEventPayload,
    WebhookEventName,
+   WebhookResponse,
 } from './webhook.types';
 
 function normalizeEvents(events: string[]): ('BUY' | 'SELL')[] {
@@ -61,7 +62,7 @@ export async function createWebhook(
    };
 }
 
-export async function listWebhooks(creatorId: string) {
+export async function listWebhooks(creatorId: string): Promise<WebhookResponse[]> {
    const webhooks = await prisma.webhook.findMany({
       where: { creatorId },
       orderBy: { createdAt: 'desc' },
