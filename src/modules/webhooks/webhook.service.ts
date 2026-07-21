@@ -68,7 +68,7 @@ export async function listWebhooks(creatorId: string): Promise<WebhookResponse[]
       orderBy: { createdAt: 'desc' },
    });
 
-   return webhooks.map((w: { events: string[] }) => ({
+   return webhooks.map((w) => ({
       ...w,
       events: denormalizeEvents(w.events as ('BUY' | 'SELL')[]),
    }));
