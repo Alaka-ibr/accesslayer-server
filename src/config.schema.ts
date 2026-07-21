@@ -110,15 +110,19 @@ export const envSchema = z
          .int()
          .positive()
          .default(300000),
-       INDEXER_HEARTBEAT_STALE_THRESHOLD_MS: z.coerce
-          .number()
-          .positive()
-          .default(300000),
+      INDEXER_HEARTBEAT_STALE_THRESHOLD_MS: z.coerce
+         .number()
+         .positive()
+         .default(300000),
 
       // Webhook settings
       WEBHOOK_MAX_PER_CREATOR: z.coerce.number().int().positive().default(5),
       WEBHOOK_RETRY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
-      WEBHOOK_RETRY_BASE_DELAY_MS: z.coerce.number().int().positive().default(1000),
+      WEBHOOK_RETRY_BASE_DELAY_MS: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(1000),
 
       // Indexer feature flags
       ENABLE_INDEXER_DEDUPE: booleanCoerce.default(true),

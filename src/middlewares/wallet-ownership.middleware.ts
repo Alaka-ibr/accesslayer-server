@@ -63,7 +63,7 @@ export function requireCreatorProfileOwnership(
             400,
             ErrorCode.BAD_REQUEST,
             'Invalid wallet address format. Stellar address must be 56 characters, start with G, and use Base32 characters.',
-            addressValidation.error.issues.map((issue) => ({
+            addressValidation.error.issues.map(issue => ({
                field: 'x-wallet-address',
                message: issue.message,
             }))

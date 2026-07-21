@@ -25,7 +25,11 @@ import { parseCreatorId } from '../../utils/creator-id.utils';
  * - Default sort: largest key_balance first.
  * - Optional ?sort=held_since returns earliest buyers first.
  */
-export const httpGetCreatorHolders: AsyncController = async (req, res, next) => {
+export const httpGetCreatorHolders: AsyncController = async (
+   req,
+   res,
+   next
+) => {
    try {
       const rawId = req.params.id;
       const creatorId = parseCreatorId(Array.isArray(rawId) ? rawId[0] : rawId);
@@ -35,13 +39,20 @@ export const httpGetCreatorHolders: AsyncController = async (req, res, next) => 
       });
 
       if (!parsed.ok) {
-         return sendValidationError(res, 'Invalid query parameters', parsed.details);
+         return sendValidationError(
+            res,
+            'Invalid query parameters',
+            parsed.details
+         );
       }
 
       const creator = await findCreatorByIdOrHandle(String(creatorId));
       if (!handleCreatorParamNotFound(res, creator)) return;
 
-      const [holders, total] = await fetchCreatorHolders(creator.id, parsed.data);
+      const [holders, total] = await fetchCreatorHolders(
+         creator.id,
+         parsed.data
+      );
 
       const meta = buildOffsetPaginationMeta({
          limit: parsed.data.limit,

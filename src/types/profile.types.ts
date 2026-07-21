@@ -191,7 +191,10 @@ export function getUserCapabilities(user: User): UserCapabilities {
 }
 
 export function getUserDisplayName(user: User): string {
-   const name = [user.firstName, user.lastName].filter(Boolean).join(' ').trim();
+   const name = [user.firstName, user.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
    return name || user.email;
 }
 
