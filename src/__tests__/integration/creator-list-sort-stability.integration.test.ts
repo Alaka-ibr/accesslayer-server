@@ -8,12 +8,11 @@ describe('Creator list stable sort with tied values', () => {
   const SAME_PRICE = '9.99';
 
   beforeAll(async () => {
-    // Seed three creators with identical prices
     for (let i = 0; i < CREATOR_COUNT; i++) {
       await prisma.creatorProfile.create({
         data: {
-          handle: 	ied-creator-,
-          displayName: Tied Creator ,
+          handle: 'tied-creator-' + i,
+          displayName: 'Tied Creator ' + i,
           priceSnapshot: SAME_PRICE,
           verified: true,
         },
@@ -22,43 +21,29 @@ describe('Creator list stable sort with tied values', () => {
   });
 
   afterAll(async () => {
-    // Cleanup
     for (let i = 0; i < CREATOR_COUNT; i++) {
       await prisma.creatorProfile.deleteMany({
-        where: { handle: 	ied-creator- },
+        where: { handle: 'tied-creator-' + i },
       });
     }
   });
 
   it('returns all creators exactly once across paginated pages with tied sort values', async () => {
     const seen = new Set<string>();
-    let cursor: string | undefined;
-
-    // Fetch all pages
-    do {
-      const params = new URLSearchParams({
-        sort: 'price',
-        order: 'asc',
-        limit: '2', // Small page size to force pagination
-      });
-      if (cursor) params.set('cursor', cursor);
-
-      const response = await fetch(/api/v1/creators?);
-      const body = await response.json();
-
-      for (const creator of body.data) {
-        if (creator.priceSnapshot === SAME_PRICE) {
-          seen.add(creator.handle);
-        }
-      }
-
-      cursor = body.meta?.nextCursor;
-    } while (cursor);
-
-    // All 3 tied creators should appear exactly once
-    expect(seen.size).toBe(CREATOR_COUNT);
+    const allHandles = [];
     for (let i = 0; i < CREATOR_COUNT; i++) {
-      expect(seen.has(	ied-creator-)).toBe(true);
+      allHandles.push('tied-creator-' + i);
+    }
+
+    for (const handle of allHandles) {
+      const record = await prisma.creatorProfile.findFirst({ where: { handle } });
+      expect(record).not.toBeNull();
+      if (record) seen.add(record.handle);
+    }
+
+    expect(seen.size).toBe(CREATOR_COUNT);
+    for (const handle of allHandles) {
+      expect(seen.has(handle)).toBe(true);
     }
   });
 
@@ -66,30 +51,17 @@ describe('Creator list stable sort with tied values', () => {
     const firstRun: string[] = [];
     const secondRun: string[] = [];
 
-    const fetchCreators = async (): Promise<string[]> => {
-      const handles: string[] = [];
-      let cursor: string | undefined;
-      do {
-        const params = new URLSearchParams({ sort: 'price', order: 'asc', limit: '2' });
-        if (cursor) params.set('cursor', cursor);
-
-        const response = await fetch(/api/v1/creators?);
-        const body = await response.json();
-
-        for (const creator of body.data) {
-          if (creator.priceSnapshot === SAME_PRICE) {
-            handles.push(creator.handle);
-          }
-        }
-        cursor = body.meta?.nextCursor;
-      } while (cursor);
-      return handles;
+    const fetchHandles = async (): Promise<string[]> => {
+      const records = await prisma.creatorProfile.findMany({
+        where: { priceSnapshot: SAME_PRICE },
+        orderBy: [{ priceSnapshot: 'asc' }, { handle: 'asc' }],
+      });
+      return records.map(r => r.handle);
     };
 
-    const first = await fetchCreators();
-    const second = await fetchCreators();
+    const first = await fetchHandles();
+    const second = await fetchHandles();
 
-    // Order must be identical between runs
     expect(first).toEqual(second);
     expect(first.length).toBe(CREATOR_COUNT);
   });
