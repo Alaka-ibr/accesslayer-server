@@ -1,68 +1,39 @@
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import supertest from 'supertest';
+import app from '../../app';
 
 describe('Creator list stable sort with tied values', () => {
-  const CREATOR_COUNT = 3;
-  const SAME_PRICE = '9.99';
-
-  beforeAll(async () => {
-    for (let i = 0; i < CREATOR_COUNT; i++) {
-      await prisma.creatorProfile.create({
-        data: {
-          handle: 'tied-creator-' + i,
-          displayName: 'Tied Creator ' + i,
-          priceSnapshot: SAME_PRICE,
-          verified: true,
-        },
-      });
-    }
-  });
-
-  afterAll(async () => {
-    for (let i = 0; i < CREATOR_COUNT; i++) {
-      await prisma.creatorProfile.deleteMany({
-        where: { handle: 'tied-creator-' + i },
-      });
-    }
-  });
-
-  it('returns all creators exactly once across paginated pages with tied sort values', async () => {
-    const seen = new Set<string>();
-    const allHandles = [];
-    for (let i = 0; i < CREATOR_COUNT; i++) {
-      allHandles.push('tied-creator-' + i);
-    }
-
-    for (const handle of allHandles) {
-      const record = await prisma.creatorProfile.findFirst({ where: { handle } });
-      expect(record).not.toBeNull();
-      if (record) seen.add(record.handle);
-    }
-
-    expect(seen.size).toBe(CREATOR_COUNT);
-    for (const handle of allHandles) {
-      expect(seen.has(handle)).toBe(true);
-    }
-  });
-
   it('returns consistent order across repeated requests', async () => {
-    const _firstRun: string[] = [];
-    const _secondRun: string[] = [];
+    const first = await supertest(app)
+      .get('/api/v1/creators')
+      .query({ sort: 'price', order: 'asc', limit: '10' });
 
-    const fetchHandles = async (): Promise<string[]> => {
-      const records = await prisma.creatorProfile.findMany({
-        where: { priceSnapshot: SAME_PRICE },
-        orderBy: [{ priceSnapshot: 'asc' }, { handle: 'asc' }],
-      });
-      return records.map(r => r.handle);
-    };
+    const second = await supertest(app)
+      .get('/api/v1/creators')
+      .query({ sort: 'price', order: 'asc', limit: '10' });
 
-    const first = await fetchHandles();
-    const second = await fetchHandles();
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
 
-    expect(first).toEqual(second);
-    expect(first.length).toBe(CREATOR_COUNT);
+    const firstHandles = (first.body.data || []).map((c: any) => c.handle);
+    const secondHandles = (second.body.data || []).map((c: any) => c.handle);
+
+    expect(firstHandles).toEqual(secondHandles);
+  });
+
+  it('does not duplicate creators across paginated pages', async () => {
+    const page1 = await supertest(app)
+      .get('/api/v1/creators')
+      .query({ sort: 'price', order: 'asc', limit: '2' });
+
+    const page2 = await supertest(app)
+      .get('/api/v1/creators')
+      .query({ sort: 'price', order: 'asc', limit: '2', cursor: (page1.body.meta?.nextCursor || '') });
+
+    const page1Handles = (page1.body.data || []).map((c: any) => c.handle);
+    const page2Handles = (page2.body.data || []).map((c: any) => c.handle);
+
+    const allHandles = [...page1Handles, ...page2Handles];
+    const unique = new Set(allHandles);
+    expect(unique.size).toBe(allHandles.length);
   });
 });
