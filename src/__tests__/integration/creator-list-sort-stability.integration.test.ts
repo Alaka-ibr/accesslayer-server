@@ -48,8 +48,8 @@ describe('Creator list stable sort with tied values', () => {
   });
 
   it('returns consistent order across repeated requests', async () => {
-    const firstRun: string[] = [];
-    const secondRun: string[] = [];
+    const _firstRun: string[] = [];
+    const _secondRun: string[] = [];
 
     const fetchHandles = async (): Promise<string[]> => {
       const records = await prisma.creatorProfile.findMany({
