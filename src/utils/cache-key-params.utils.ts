@@ -15,15 +15,12 @@
  * // => "limit:20:order:desc:sort:createdAt"
  */
 export function buildCanonicalParamString(
-   params: Record<string, string | number | boolean | undefined>
+   params: Record<string, unknown>
 ): string {
    return Object.entries(params)
-      .filter(
-         (entry): entry is [string, string | number | boolean] =>
-            entry[1] !== undefined
-      )
+      .filter((entry): entry is [string, unknown] => entry[1] !== undefined)
       .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, value]) => `${key}:${value}`)
+      .map(([key, value]) => `${key}:${typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}`)
       .join(':');
 }
 
