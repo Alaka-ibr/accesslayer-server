@@ -48,7 +48,9 @@ function logIfFieldTypeMismatch(
 
    const expectedType = CREATOR_LIST_FIELD_EXPECTED_TYPES[fieldName];
    const typeMatches =
-      expectedType === 'Date' ? value instanceof Date : typeof value === expectedType;
+      expectedType === 'Date'
+         ? value instanceof Date
+         : typeof value === expectedType;
 
    if (!typeMatches) {
       logger.error({

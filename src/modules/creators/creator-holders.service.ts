@@ -7,9 +7,9 @@ import { CreatorHoldersQueryType } from './creator-holders.schemas';
  * Public-facing holder record returned by the holders endpoint.
  */
 export interface HolderRecord {
-  wallet_address: string;
-  key_balance: number;
-  held_since: Date;
+   wallet_address: string;
+   key_balance: number;
+   held_since: Date;
 }
 
 /**
@@ -17,14 +17,14 @@ export interface HolderRecord {
  * Returns null if no creator matches either field.
  */
 export async function findCreatorByIdOrHandle(
-  idOrHandle: string,
+   idOrHandle: string
 ): Promise<{ id: string; handle: string } | null> {
-  return prisma.creatorProfile.findFirst({
-    where: {
-      OR: [{ id: idOrHandle }, { handle: idOrHandle }],
-    },
-    select: { id: true, handle: true },
-  });
+   return prisma.creatorProfile.findFirst({
+      where: {
+         OR: [{ id: idOrHandle }, { handle: idOrHandle }],
+      },
+      select: { id: true, handle: true },
+   });
 }
 
 /**
@@ -41,47 +41,52 @@ export async function findCreatorByIdOrHandle(
  * @returns Tuple of [holder records, total count]
  */
 export async function fetchCreatorHolders(
-  creatorId: string,
-  query: CreatorHoldersQueryType,
+   creatorId: string,
+   query: CreatorHoldersQueryType
 ): Promise<[HolderRecord[], number]> {
-  const { limit, offset, sort } = query;
-  const startMs = Date.now();
+   const { limit, offset, sort } = query;
+   const startMs = Date.now();
 
-  const where: Prisma.KeyOwnershipWhereInput = {
-    creatorId,
-    balance: { gt: 0 },
-  };
+   const where: Prisma.KeyOwnershipWhereInput = {
+      creatorId,
+      balance: { gt: 0 },
+   };
 
-  const orderBy: Prisma.KeyOwnershipOrderByWithRelationInput =
-    sort === 'held_since'
-      ? { createdAt: 'asc' }
-      : { balance: 'desc' };
+   const orderBy: Prisma.KeyOwnershipOrderByWithRelationInput =
+      sort === 'held_since' ? { createdAt: 'asc' } : { balance: 'desc' };
 
-  const [rows, total] = await Promise.all([
-    prisma.keyOwnership.findMany({
-      where,
-      orderBy,
-      skip: offset,
-      take: limit,
-      select: {
-        ownerAddress: true,
-        balance: true,
-        createdAt: true,
-      },
-    }),
-    prisma.keyOwnership.count({ where }),
-  ]);
+   const [rows, total] = await Promise.all([
+      prisma.keyOwnership.findMany({
+         where,
+         orderBy,
+         skip: offset,
+         take: limit,
+         select: {
+            ownerAddress: true,
+            balance: true,
+            createdAt: true,
+         },
+      }),
+      prisma.keyOwnership.count({ where }),
+   ]);
 
-  const holders: HolderRecord[] = rows.map((row) => ({
-    wallet_address: row.ownerAddress,
-    key_balance: Number(row.balance),
-    held_since: row.createdAt,
-  }));
+   const holders: HolderRecord[] = rows.map(row => ({
+      wallet_address: row.ownerAddress,
+      key_balance: Number(row.balance),
+      held_since: row.createdAt,
+   }));
 
-  if (holders.length === 0) {
-    const durationMs = Date.now() - startMs;
-    logger.debug({ creator_id: creatorId, holder_count: 0, query_duration_ms: durationMs }, 'Creator holders query returned zero results');
-  }
+   if (holders.length === 0) {
+      const durationMs = Date.now() - startMs;
+      logger.debug(
+         {
+            creator_id: creatorId,
+            holder_count: 0,
+            query_duration_ms: durationMs,
+         },
+         'Creator holders query returned zero results'
+      );
+   }
 
-  return [holders, total];
+   return [holders, total];
 }

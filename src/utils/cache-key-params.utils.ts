@@ -15,13 +15,16 @@
  * // => "limit:20:order:desc:sort:createdAt"
  */
 export function buildCanonicalParamString(
-    params: Record<string, unknown>,
+   params: Record<string, string | number | boolean | undefined>
 ): string {
-    return Object.entries(params)
-        .filter((entry): entry is [string, unknown] => entry[1] !== undefined)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, value]) => `${key}:${typeof value === 'object' && value !== null ? JSON.stringify(value) : String(value)}`)
-        .join(':');
+   return Object.entries(params)
+      .filter(
+         (entry): entry is [string, string | number | boolean] =>
+            entry[1] !== undefined
+      )
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}:${value}`)
+      .join(':');
 }
 
 import { createHash } from 'crypto';
