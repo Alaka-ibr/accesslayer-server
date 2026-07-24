@@ -156,4 +156,26 @@ describe('fetchWalletActivity type filter integration', () => {
          })
       );
    });
+
+   it('returns an empty array when there are no activities, regardless of filter', async () => {
+      mockPrisma.activity.findMany.mockResolvedValue([]);
+      mockPrisma.activity.count.mockResolvedValue(0);
+
+      const [buyItems, buyTotal] = await fetchWalletActivity(WALLET_ADDRESS, {
+         type: 'buy',
+         limit: 20,
+         offset: 0,
+      });
+
+      expect(buyItems).toEqual([]);
+      expect(buyTotal).toBe(0);
+
+      const [allItems, allTotal] = await fetchWalletActivity(WALLET_ADDRESS, {
+         limit: 20,
+         offset: 0,
+      });
+
+      expect(allItems).toEqual([]);
+      expect(allTotal).toBe(0);
+   });
 });

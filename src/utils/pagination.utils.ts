@@ -111,3 +111,40 @@ export async function paginateQuery<T>(
 
    return { data, nextCursor, hasMore };
 }
+
+export type PaginatedResponse<T> = {
+   items: T[];
+   has_more: boolean;
+   next_cursor: string | null;
+};
+
+/**
+ * Builds a paginated response envelope from an over-fetched result set.
+ *
+ * Callers fetch up to `limit + 1` items; if the extra item is present, it is
+ * popped off and used to derive `next_cursor` for the next page.
+ *
+ * @param items Result set, expected to contain up to `limit + 1` items
+ * @param limit The page size requested by the caller
+ * @param cursorFn Extracts the cursor value from the last item kept on the page
+ */
+export function buildPaginatedResponse<T>(
+   items: T[],
+   limit: number,
+   cursorFn: (item: T) => string
+): PaginatedResponse<T> {
+   if (items.length > limit) {
+      const page = items.slice(0, limit);
+      return {
+         items: page,
+         has_more: true,
+         next_cursor: cursorFn(page[page.length - 1]),
+      };
+   }
+
+   return {
+      items,
+      has_more: false,
+      next_cursor: null,
+   };
+}
