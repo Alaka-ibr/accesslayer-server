@@ -1,4 +1,4 @@
-import { paginateQuery } from '../pagination.utils';
+import { paginateQuery, buildPaginatedResponse } from '../pagination.utils';
 
 describe('paginateQuery', () => {
    const mockData = [
@@ -60,5 +60,46 @@ describe('paginateQuery', () => {
       expect(result.data).toEqual([{ id: 5, name: 'Eve' }]);
       expect(result.hasMore).toBe(false);
       expect(result.nextCursor).toBeUndefined();
+   });
+});
+
+describe('buildPaginatedResponse', () => {
+   const items = [
+      { id: 1, name: 'Alice' },
+      { id: 2, name: 'Bob' },
+      { id: 3, name: 'Charlie' },
+   ];
+   const cursorFn = (item: { id: number }) => String(item.id);
+
+   it('returns has_more: false and next_cursor: null when items are under the limit', () => {
+      const result = buildPaginatedResponse(items.slice(0, 2), 5, cursorFn);
+
+      expect(result.items).toEqual(items.slice(0, 2));
+      expect(result.has_more).toBe(false);
+      expect(result.next_cursor).toBeNull();
+   });
+
+   it('returns has_more: false and next_cursor: null when items exactly match the limit', () => {
+      const result = buildPaginatedResponse(items, 3, cursorFn);
+
+      expect(result.items).toEqual(items);
+      expect(result.has_more).toBe(false);
+      expect(result.next_cursor).toBeNull();
+   });
+
+   it('pops the extra item and sets next_cursor when items exceed the limit', () => {
+      const result = buildPaginatedResponse(items, 2, cursorFn);
+
+      expect(result.items).toEqual(items.slice(0, 2));
+      expect(result.has_more).toBe(true);
+      expect(result.next_cursor).toBe('2');
+   });
+
+   it('returns an empty items array with has_more: false for an empty result set', () => {
+      const result = buildPaginatedResponse([], 5, cursorFn);
+
+      expect(result.items).toEqual([]);
+      expect(result.has_more).toBe(false);
+      expect(result.next_cursor).toBeNull();
    });
 });
