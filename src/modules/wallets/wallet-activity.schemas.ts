@@ -28,6 +28,14 @@ export const WalletActivityQuerySchema = z
       type: z.enum(['buy', 'sell']).optional(),
       creator_id: z.string().optional(),
       cursor: z.string().optional(),
+      from: z
+         .string()
+         .datetime({ message: 'from must be an ISO 8601 datetime string' })
+         .optional(),
+      to: z
+         .string()
+         .datetime({ message: 'to must be an ISO 8601 datetime string' })
+         .optional(),
    })
    .strict();
 

@@ -52,21 +52,16 @@ export async function detectLedgerGap(): Promise<LedgerGap> {
       const networkHead = await fetchStellarNetworkHead();
       const gapSize = networkHead - indexedLedger.ledger;
 
-      if (gapSize > 10) {
-         // Gap threshold: 10 ledgers (~50 seconds at 5s/ledger)
+      if (gapSize > 50) {
+         // Gap threshold: 50 ledgers (~250 seconds at 5s/ledger)
          logger.warn(
             {
-               event: 'ledger_gap_detected',
-               lastProcessed: indexedLedger.ledger,
-               networkHead,
-               gapSize,
-               gapRange: {
-                  start: indexedLedger.ledger + 1,
-                  end: networkHead,
-               },
-               updatedAt: indexedLedger.updatedAt.toISOString(),
+               latest_processed_ledger: indexedLedger.ledger,
+               latest_network_ledger: networkHead,
+               gap: gapSize,
+               detected_at: new Date().toISOString(),
             },
-            `Ledger gap detected: ${gapSize} ledgers behind (${indexedLedger.ledger} → ${networkHead})`
+            `Indexer is behind by ${gapSize} ledgers (${indexedLedger.ledger} → ${networkHead})`
          );
 
          return {
