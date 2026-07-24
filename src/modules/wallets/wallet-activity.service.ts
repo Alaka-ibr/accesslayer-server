@@ -25,7 +25,7 @@ export async function fetchWalletActivity(
    address: string,
    query: WalletActivityQueryType
 ): Promise<[WalletActivityItem[], number, string | null]> {
-   const { limit, offset, type, creator_id, cursor } = query;
+   const { limit, offset, type, creator_id, cursor, from, to } = query;
 
    // Map the public-facing type param to the internal ActivityType enum values.
    const typeFilter =
@@ -38,6 +38,17 @@ export async function fetchWalletActivity(
 
    if (creator_id) {
       where.creatorId = creator_id;
+   }
+
+   // Date range filter: `from` and `to` are inclusive boundaries.
+   if (from || to) {
+      where.createdAt = {};
+      if (from) {
+         where.createdAt.gte = new Date(from);
+      }
+      if (to) {
+         where.createdAt.lte = new Date(to);
+      }
    }
 
    let prismaCursor: { id: string } | undefined;

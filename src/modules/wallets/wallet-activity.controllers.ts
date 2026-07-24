@@ -10,6 +10,7 @@ import {
 } from '../../utils/api-response.utils';
 import { buildOffsetPaginationMeta } from '../../utils/pagination.utils';
 import { logger } from '../../utils/logger.utils';
+import { maskSensitive } from '../../utils/mask-sensitive.utils';
 
 export async function httpGetWalletActivity(
    req: Request,
@@ -65,12 +66,12 @@ export async function httpGetWalletActivity(
             : address;
 
       logger.debug(
-         {
+         maskSensitive({
             wallet_address: maskedAddress,
             result_count: items.length,
             query_duration_ms: Math.round(duration),
             filters_applied,
-         },
+         }),
          'Wallet activity feed query'
       );
 
