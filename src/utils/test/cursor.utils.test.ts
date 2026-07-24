@@ -113,5 +113,18 @@ describe('Cursor Utils', () => {
 
          expect(() => decodeCursor(cursor)).toThrow(CursorChecksumError);
       });
+
+      it('should round-trip a payload containing special characters (spaces, slashes, unicode)', () => {
+         const specialPayload = {
+            id: 'user 123/456',
+            createdAt: '2023-01-01T00:00:00.000Z',
+            note: 'a/b c?d&e=f café 名前',
+         };
+
+         const cursor = encodeCursor(specialPayload);
+         const decoded = decodeCursor<typeof specialPayload>(cursor);
+
+         expect(decoded).toEqual(specialPayload);
+      });
    });
 });
