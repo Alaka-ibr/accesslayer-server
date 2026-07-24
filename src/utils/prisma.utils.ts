@@ -33,6 +33,17 @@ function normalizeArgsForFingerprint(value: unknown, depth = 0): unknown {
    return '?';
 }
 
+/** Maps a Prisma client operation to the SQL verb it maps to, for logging. */
+function mapOperationToSqlVerb(
+   operation: string
+): 'select' | 'insert' | 'update' | 'delete' | string {
+   if (/^(find|count|aggregate|groupBy)/.test(operation)) return 'select';
+   if (/^create/.test(operation)) return 'insert';
+   if (/^(update|upsert)/.test(operation)) return 'update';
+   if (/^delete/.test(operation)) return 'delete';
+   return operation;
+}
+
 /**
  * Build a short deterministic hash that identifies the query pattern (model,
  * operation, and arg structure) without including any parameter values.
@@ -147,8 +158,11 @@ export const prisma = basePrisma.$extends({
                   logger.warn(
                      {
                         type: 'slow_query',
+                        query_name: `${model ?? 'unknown'}.${operation}`,
+                        table: model,
+                        operation: mapOperationToSqlVerb(operation),
+                        duration_ms: elapsedMs,
                         model,
-                        operation,
                         fingerprint: buildQueryFingerprint(
                            model,
                            operation,
