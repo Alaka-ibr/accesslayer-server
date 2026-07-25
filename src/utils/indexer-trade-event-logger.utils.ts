@@ -1,4 +1,5 @@
 import { logger } from './logger.utils';
+import { buildLogFields } from './log-fields.utils';
 
 export interface IndexerTradeEventLogFields {
    event_type: 'buy' | 'sell';
@@ -20,15 +21,15 @@ function maskActorAddress(address: string): string {
  */
 export function logIndexerTradeEvent(fields: IndexerTradeEventLogFields): void {
    logger.info(
-      {
+      buildLogFields({
          type: 'indexer_trade_processed',
          event_type: fields.event_type,
          creator_id: fields.creator_id,
          ledger_sequence: fields.ledger_sequence,
          actor_address: maskActorAddress(fields.actor_address),
          amount: fields.amount,
-         processed_at: fields.processed_at.toISOString(),
-      },
+         processed_at: fields.processed_at,
+      }),
       'Indexer trade event processed'
    );
 }

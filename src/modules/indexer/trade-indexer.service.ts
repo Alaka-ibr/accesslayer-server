@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { logger } from '../../utils/logger.utils';
+import { buildLogFields } from '../../utils/log-fields.utils';
 
 export interface SorobanBuyEvent {
    buyer: string;
@@ -49,12 +49,12 @@ export async function processTradeEvent(
       });
 
       logger.warn(
-         {
+         buildLogFields({
             type: 'trade_event_skipped',
             missing_fields: missing,
             ledger: event.ledger,
             tx_hash: event.tx_hash,
-         },
+         }),
          'Skipping trade event with missing required fields'
       );
 
