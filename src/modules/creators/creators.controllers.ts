@@ -106,6 +106,8 @@ function categorizeParseError(
    return 'invalid_value';
 }
 
+import { prisma } from '../../utils/prisma.utils';
+
 /**
  * Controller for GET /api/v1/creators/:id/stats
  *
@@ -119,17 +121,28 @@ export const httpGetCreatorStats: AsyncController = async (req, res, next) => {
          Array.isArray(rawId) ? rawId[0] : rawId
       );
 
-      // TODO: Fetch actual creator metrics from database/service using _creatorId
-      // For now, return placeholder data
-      const placeholderMetrics = {
-         holderCount: 0,
+      const creator = await prisma.creatorProfile.findFirst({
+         where: { OR: [{ id: _creatorId }, { handle: _creatorId }] },
+         select: { id: true },
+      });
+      const resolvedId = creator ? creator.id : _creatorId;
+
+      const holderCount = await prisma.keyOwnership.count({
+         where: {
+            creatorId: resolvedId,
+            balance: { gt: 0 },
+         },
+      });
+
+      const metrics = {
+         holderCount,
          totalSupply: 0,
          totalVolume: 0,
          lastActivityAt: undefined,
       };
 
       // Serialize using the public stats mapper
-      const stats = mapPublicCreatorStats(placeholderMetrics);
+      const stats = mapPublicCreatorStats(metrics);
 
       attachTimestampHeader(res);
       sendSuccess(res, stats);
