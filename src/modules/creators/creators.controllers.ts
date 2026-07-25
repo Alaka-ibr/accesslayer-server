@@ -26,6 +26,7 @@ import {
    creatorProfileExists,
    getCreatorProfile,
 } from '../creator/creator-profile.service';
+import { prisma } from '../../utils/prisma.utils';
 
 /**
  * Controller for GET /api/v1/creators
@@ -105,8 +106,6 @@ function categorizeParseError(
    // Default to invalid_value for type/range errors
    return 'invalid_value';
 }
-
-import { prisma } from '../../utils/prisma.utils';
 
 /**
  * Controller for GET /api/v1/creators/:id/stats
