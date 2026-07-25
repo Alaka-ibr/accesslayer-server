@@ -22,7 +22,7 @@ function makeNext(): jest.Mock {
 }
 
 describe('#630 Integration test: creator detail holder count after sequential buys and sells', () => {
-   const creatorId = 'creator-seq-test-1';
+   const creatorId = '123';
    const walletA = 'GWALLETA1111111111111111111111111111111111111111111111111';
    const walletB = 'GWALLETB2222222222222222222222222222222222222222222222222';
 
