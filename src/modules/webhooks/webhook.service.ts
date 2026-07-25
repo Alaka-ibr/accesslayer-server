@@ -139,11 +139,14 @@ async function attemptDelivery(
    attempt = 1
 ): Promise<void> {
    const maxAttempts = envConfig.WEBHOOK_RETRY_MAX_ATTEMPTS;
+   const startTime = Date.now();
+   let responseStatus: number | null = null;
+   let responseTimeMs = 0;
+   let success = false;
 
    try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
-      const startTime = Date.now();
 
       const response = await fetch(callbackUrl, {
          method: 'POST',
@@ -152,11 +155,24 @@ async function attemptDelivery(
          signal: controller.signal,
       });
 
-      const endTime = Date.now();
-      const responseTimeMs = endTime - startTime;
+      responseTimeMs = Date.now() - startTime;
       clearTimeout(timeout);
+      responseStatus = response.status;
 
       if (response.ok) {
+         success = true;
+         logger.info(
+            {
+               webhook_id: webhookId,
+               event_type: payload.event_type,
+               attempt_number: attempt,
+               response_status: responseStatus,
+               duration_ms: responseTimeMs,
+               success: true,
+            },
+            'Webhook delivery attempt'
+         );
+
          await prisma.webhookEvent.updateMany({
             where: { webhookId, status: 'PENDING' },
             data: { status: 'DELIVERED', retryCount: attempt },
@@ -176,8 +192,34 @@ async function attemptDelivery(
          return;
       }
 
+      logger.info(
+         {
+            webhook_id: webhookId,
+            event_type: payload.event_type,
+            attempt_number: attempt,
+            response_status: responseStatus,
+            duration_ms: responseTimeMs,
+            success: false,
+         },
+         'Webhook delivery attempt'
+      );
+
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
    } catch (error) {
+      if (!success && responseStatus === null) {
+         responseTimeMs = Date.now() - startTime;
+         logger.info(
+            {
+               webhook_id: webhookId,
+               event_type: payload.event_type,
+               attempt_number: attempt,
+               response_status: null,
+               duration_ms: responseTimeMs,
+               success: false,
+            },
+            'Webhook delivery attempt'
+         );
+      }
       const errMsg = error instanceof Error ? error.message : 'Unknown error';
 
       await prisma.webhookEvent.updateMany({

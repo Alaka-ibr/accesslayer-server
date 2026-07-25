@@ -194,6 +194,27 @@ describe('dispatchWebhookEvent', () => {
 
       expect(mockPrisma.webhookEvent.create).toHaveBeenCalled();
       expect(mockFetch).toHaveBeenCalled();
+
+      // Assert attempt log was emitted
+      expect(logger.info).toHaveBeenCalledWith(
+         expect.objectContaining({
+            webhook_id: 'wh-1',
+            event_type: 'buy',
+            attempt_number: 1,
+            response_status: 200,
+            duration_ms: expect.any(Number),
+            success: true,
+         }),
+         'Webhook delivery attempt'
+      );
+
+      // Verify callback URL is absent from all info logs
+      const logCalls = (logger.info as jest.Mock).mock.calls;
+      for (const call of logCalls) {
+         const payload = call[0];
+         expect(payload.callback_url).toBeUndefined();
+         expect(payload.callbackUrl).toBeUndefined();
+      }
    });
 
    it('respects event type filter — buy webhook does not fire for sell events', async () => {
@@ -292,7 +313,6 @@ describe('dispatchWebhookEvent', () => {
          }),
          'Webhook delivery failed, retrying'
       );
-      expect(logger.error).toHaveBeenCalledTimes(1);
       expect(logger.error).toHaveBeenCalledWith(
          expect.objectContaining({
             webhook_id: 'wh-1',
@@ -304,5 +324,28 @@ describe('dispatchWebhookEvent', () => {
          }),
          'Webhook delivery exhausted all retries, flagged as failing'
       );
+
+      // Verify attempt log was emitted for every retry attempt (success: false, response_status: null)
+      for (let attempt = 1; attempt <= envConfig.WEBHOOK_RETRY_MAX_ATTEMPTS; attempt++) {
+         expect(logger.info).toHaveBeenCalledWith(
+            expect.objectContaining({
+               webhook_id: 'wh-1',
+               event_type: 'sell',
+               attempt_number: attempt,
+               response_status: null,
+               duration_ms: expect.any(Number),
+               success: false,
+            }),
+            'Webhook delivery attempt'
+         );
+      }
+
+      // Verify callback URL is absent from all info logs
+      const logCalls = (logger.info as jest.Mock).mock.calls;
+      for (const call of logCalls) {
+         const payload = call[0];
+         expect(payload.callback_url).toBeUndefined();
+         expect(payload.callbackUrl).toBeUndefined();
+      }
    });
 });

@@ -3,6 +3,7 @@ import {
    httpListCreators,
    httpGetCreator,
    httpGetCreatorStats,
+   httpGetTrendingCreators,
 } from './creators.controllers';
 import { httpGetCreatorHolders } from './creator-holders.controller';
 import { cacheControl } from '../../middlewares/cache-control.middleware';
@@ -78,6 +79,17 @@ creatorsRouter.get(
 creatorsRouter.all('/:id/holders', (_req, res) => {
    res.set('Allow', 'GET').sendStatus(405);
 });
+
+/**
+ * GET /api/v1/creators/trending
+ *
+ * List trending creators ordered by 24h trading volume descending.
+ */
+creatorsRouter.get(
+   '/trending',
+   createCreatorReadMetricsMiddleware('list'),
+   httpGetTrendingCreators
+);
 
 /**
  * GET /api/v1/creators/:id

@@ -1,6 +1,8 @@
 import { AsyncController } from '../../types/auth.types';
 import { CreatorListQuerySchema } from './creators.schemas';
 import { fetchCreatorList } from './creators.utils';
+import { prisma } from '../../utils/prisma.utils';
+import { compute24hVolume } from '../../utils/trading-volume.utils';
 import {
    serializeCreatorListResponse,
    CreatorListResponse,
@@ -168,6 +170,78 @@ export const httpGetCreator: AsyncController = async (req, res, next) => {
       const profile = await getCreatorProfile(creatorId);
       attachTimestampHeader(res);
       sendSuccess(res, profile, 200, 'Creator retrieved successfully');
+   } catch (error) {
+      next(error);
+   }
+};
+
+/**
+ * Controller for GET /api/v1/creators/trending
+ *
+ * Returns creators ordered by 24h trading volume descending.
+ * Respects pagination limit parameters.
+ */
+export const httpGetTrendingCreators: AsyncController = async (req, res, next) => {
+   try {
+      const ctx = buildCreatorListRequestContext(req);
+
+      const parsed = parsePublicQuery(CreatorListQuerySchema, ctx.query, {
+         debugContext: 'creator-trending-query',
+      });
+      if (!parsed.ok) {
+         return sendValidationError(
+            res,
+            'Invalid query parameters',
+            parsed.details
+         );
+      }
+      const validatedQuery = parsed.data;
+      const limit = validatedQuery.limit;
+
+      // Fetch all creators
+      const creators = await prisma.creatorProfile.findMany({
+         select: {
+            id: true,
+            handle: true,
+            displayName: true,
+            avatarUrl: true,
+            isVerified: true,
+            createdAt: true,
+            updatedAt: true,
+         },
+      });
+
+      // Compute volume for each creator
+      const creatorsWithVolume = await Promise.all(
+         creators.map(async (creator) => {
+            const volume = await compute24hVolume(creator.id);
+            return {
+               id: creator.id,
+               handle: creator.handle,
+               displayName: creator.displayName,
+               avatarUrl: creator.avatarUrl,
+               isVerified: creator.isVerified,
+               createdAt: creator.createdAt.toISOString(),
+               updatedAt: creator.updatedAt.toISOString(),
+               volume_24h: volume.toString(),
+            };
+         })
+      );
+
+      // Sort by volume descending
+      creatorsWithVolume.sort((a, b) => {
+         const volA = BigInt(a.volume_24h);
+         const volB = BigInt(b.volume_24h);
+         if (volB > volA) return 1;
+         if (volB < volA) return -1;
+         return 0;
+      });
+
+      // Slice list based on limit
+      const items = creatorsWithVolume.slice(0, limit);
+
+      attachTimestampHeader(res);
+      sendSuccess(res, { items });
    } catch (error) {
       next(error);
    }
