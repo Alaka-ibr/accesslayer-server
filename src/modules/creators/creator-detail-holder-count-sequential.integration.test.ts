@@ -31,10 +31,8 @@ describe('#630 Integration test: creator detail holder count after sequential bu
    });
 
    it('holder count updates accurately across sequential buys and sells across multiple wallets', async () => {
-      // Setup mock DB store for keyOwnership
       const ownershipStore = new Map<string, number>();
-
-      jest.spyOn(prisma.keyOwnership, 'count').mockImplementation(async (args: any) => {
+      (prisma.keyOwnership.count as any) = jest.fn(async (args: any) => {
          let count = 0;
          for (const [key, bal] of ownershipStore.entries()) {
             if (key.endsWith(`:${creatorId}`) && bal > 0) {
@@ -44,14 +42,14 @@ describe('#630 Integration test: creator detail holder count after sequential bu
          return count;
       });
 
-      jest.spyOn(prisma.keyOwnership, 'findFirst').mockImplementation(async (args: any) => {
+      (prisma.keyOwnership.findFirst as any) = jest.fn(async (args: any) => {
          const { ownerAddress, creatorId } = args.where;
          const key = `${ownerAddress}:${creatorId}`;
          const bal = ownershipStore.get(key) || 0;
          return { balance: bal } as any;
       });
 
-      jest.spyOn(prisma.keyOwnership, 'upsert').mockImplementation(async (args: any) => {
+      (prisma.keyOwnership.upsert as any) = jest.fn(async (args: any) => {
          const { ownerAddress, creatorId } = args.create;
          const key = `${ownerAddress}:${creatorId}`;
          const current = ownershipStore.get(key) || 0;
@@ -60,6 +58,8 @@ describe('#630 Integration test: creator detail holder count after sequential bu
          ownershipStore.set(key, newBal);
          return { ownerAddress, creatorId, balance: newBal } as any;
       });
+
+
 
       // Step 0: Initial state - 0 holders
       const req0 = makeReq(creatorId);

@@ -117,15 +117,16 @@ import { prisma } from '../../utils/prisma.utils';
 export const httpGetCreatorStats: AsyncController = async (req, res, next) => {
    try {
       const rawId = req.params.id;
-      const _creatorId = parseCreatorId(
+      const parsedId = parseCreatorId(
          Array.isArray(rawId) ? rawId[0] : rawId
       );
+      const creatorIdStr = String(parsedId);
 
       const creator = await prisma.creatorProfile.findFirst({
-         where: { OR: [{ id: _creatorId }, { handle: _creatorId }] },
+         where: { OR: [{ id: creatorIdStr }, { handle: creatorIdStr }] },
          select: { id: true },
       });
-      const resolvedId = creator ? creator.id : _creatorId;
+      const resolvedId = creator ? creator.id : creatorIdStr;
 
       const holderCount = await prisma.keyOwnership.count({
          where: {
