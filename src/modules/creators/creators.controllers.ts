@@ -28,7 +28,6 @@ import {
    creatorProfileExists,
    getCreatorProfile,
 } from '../creator/creator-profile.service';
-import { prisma } from '../../utils/prisma.utils';
 
 /**
  * Controller for GET /api/v1/creators
