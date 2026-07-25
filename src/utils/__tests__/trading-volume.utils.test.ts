@@ -228,4 +228,54 @@ describe('compute24hVolume()', () => {
       // Should only sum the valid trade
       expect(volume).toBe(1000n);
    });
+
+   describe('rolling 24h window boundary behaviors', () => {
+      it('includes a trade timestamped exactly 24 hours ago', async () => {
+         mockPrisma.activity.findMany.mockResolvedValue([
+            { payload: { price: '1000' } }
+         ]);
+
+         const volume = await compute24hVolume(CREATOR_ID);
+
+         expect(volume).toBe(1000n);
+         // Verify the query where clause gte matches exactly 24h ago
+         const callArgs = mockPrisma.activity.findMany.mock.calls[0][0];
+         const expectedCutoff = new Date(NOW.getTime() - 24 * 60 * 60 * 1000);
+         expect(callArgs.where.createdAt.gte.getTime()).toBe(expectedCutoff.getTime());
+      });
+
+      it('excludes a trade timestamped 24 hours and 1 millisecond ago', async () => {
+         // The db query would filter out trades older than 24h ago
+         mockPrisma.activity.findMany.mockResolvedValue([]);
+
+         const volume = await compute24hVolume(CREATOR_ID);
+
+         expect(volume).toBe(0n);
+         
+         const callArgs = mockPrisma.activity.findMany.mock.calls[0][0];
+         const expectedCutoff = new Date(NOW.getTime() - 24 * 60 * 60 * 1000);
+         expect(callArgs.where.createdAt.gte.getTime()).toBe(expectedCutoff.getTime());
+      });
+
+      it('includes a trade timestamped 1 second ago', async () => {
+         mockPrisma.activity.findMany.mockResolvedValue([
+            { payload: { price: '500' } }
+         ]);
+
+         const volume = await compute24hVolume(CREATOR_ID);
+
+         expect(volume).toBe(500n);
+
+         const callArgs = mockPrisma.activity.findMany.mock.calls[0][0];
+         expect(callArgs.where.createdAt.lte.getTime()).toBe(NOW.getTime());
+      });
+
+      it('returns 0 when all trades fall outside the window', async () => {
+         mockPrisma.activity.findMany.mockResolvedValue([]);
+
+         const volume = await compute24hVolume(CREATOR_ID);
+
+         expect(volume).toBe(0n);
+      });
+   });
 });
