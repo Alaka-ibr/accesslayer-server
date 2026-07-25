@@ -16,7 +16,7 @@ function makeTrade(id: string, ledger: number, txHash: string, creatorId = 'crea
 function makeMockDb(allTrades: TradeRecord[]) {
    return {
       trade: {
-         findMany: jest.fn(async ({ where, orderBy, take }: { where: any; orderBy: any[]; take: number }) => {
+         findMany: jest.fn(async ({ where, _orderBy, take }: { where: any; _orderBy?: any[]; take: number }) => {
             let filtered = allTrades.filter(t => t.creatorId === where.creatorId);
 
             if (where.OR) {
