@@ -117,21 +117,33 @@ function categorizeParseError(
 export const httpGetCreatorStats: AsyncController = async (req, res, next) => {
    try {
       const rawId = req.params.id;
-      const _creatorId = parseCreatorId(
+      const parsedId = parseCreatorId(
          Array.isArray(rawId) ? rawId[0] : rawId
       );
+      const creatorIdStr = String(parsedId);
 
-      // TODO: Fetch actual creator metrics from database/service using _creatorId
-      // For now, return placeholder data
-      const placeholderMetrics = {
-         holderCount: 0,
+      const creator = await prisma.creatorProfile.findFirst({
+         where: { OR: [{ id: creatorIdStr }, { handle: creatorIdStr }] },
+         select: { id: true },
+      });
+      const resolvedId = creator ? creator.id : creatorIdStr;
+
+      const holderCount = await prisma.keyOwnership.count({
+         where: {
+            creatorId: resolvedId,
+            balance: { gt: 0 },
+         },
+      });
+
+      const metrics = {
+         holderCount,
          totalSupply: 0,
          totalVolume: 0,
          lastActivityAt: undefined,
       };
 
       // Serialize using the public stats mapper
-      const stats = mapPublicCreatorStats(placeholderMetrics);
+      const stats = mapPublicCreatorStats(metrics);
 
       attachTimestampHeader(res);
       sendSuccess(res, stats);

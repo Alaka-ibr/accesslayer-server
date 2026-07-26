@@ -1,4 +1,5 @@
 import { logger } from './logger.utils';
+import { buildLogFields } from './log-fields.utils';
 import { dedupeChainEvents, ChainEvent } from './indexer-dedupe.utils';
 import { elapsedMs, startTimer } from './monotonic-clock.utils';
 
@@ -34,7 +35,7 @@ export async function processIndexerChainEvent<T extends IndexerChainEvent>(
    await handler(event);
 
    logger.info(
-      {
+      buildLogFields({
          type: 'indexer_event_processed',
          eventType: event.eventType,
          eventId,
@@ -42,7 +43,7 @@ export async function processIndexerChainEvent<T extends IndexerChainEvent>(
          eventIndex: event.eventIndex,
          ledger: event.ledger,
          elapsedMs: elapsedMs(timer),
-      },
+      }),
       'Indexer chain event processed'
    );
 }

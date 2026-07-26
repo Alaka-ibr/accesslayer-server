@@ -24,6 +24,7 @@ export type CreatorStatsField = (typeof CREATOR_STATS_FIELDS)[number];
  */
 export interface PublicCreatorStats {
    holderCount: number;
+   holder_count: number;
    totalSupply: number;
    totalVolume: number;
    lastActivityAt?: Date;
@@ -55,13 +56,15 @@ const CREATOR_STATS_FIELD_MAP = {
  *
  * @example
  * mapPublicCreatorStats({ holderCount: 10, totalSupply: 100, totalVolume: 500 })
- * // => { holderCount: 10, totalSupply: 100, totalVolume: 500 }
+ * // => { holderCount: 10, holder_count: 10, totalSupply: 100, totalVolume: 500 }
  */
 export function mapPublicCreatorStats(
    metrics: CreatorMetrics
 ): PublicCreatorStats {
+   const count = metrics[CREATOR_STATS_FIELD_MAP.holderCount];
    return {
-      holderCount: metrics[CREATOR_STATS_FIELD_MAP.holderCount],
+      holderCount: count,
+      holder_count: count,
       totalSupply: metrics[CREATOR_STATS_FIELD_MAP.totalSupply],
       totalVolume: metrics[CREATOR_STATS_FIELD_MAP.totalVolume],
       ...(metrics[CREATOR_STATS_FIELD_MAP.lastActivityAt] !== undefined
