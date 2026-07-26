@@ -62,6 +62,7 @@ export async function processTradeEvents(events: IndexerChainEvent[]): Promise<v
          creatorId,
          price: BigInt(price),
          tradeAt: new Date(tradeAt),
+         ledger: Number(ledger),
       });
    });
 }
