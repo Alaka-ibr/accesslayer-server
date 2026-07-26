@@ -11,6 +11,8 @@ export interface TradeEventPayload {
    price: bigint;
    /** ISO timestamp of the trade */
    tradeAt: Date;
+   /** Ledger sequence number the trade was included in */
+   ledger?: number;
 }
 
 /**
@@ -26,6 +28,7 @@ export async function upsertPriceSnapshot(
    event: TradeEventPayload
 ): Promise<void> {
    const { creatorId, price, tradeAt } = event;
+   const { creatorId, price, tradeAt, ledger } = event;
 
    try {
       const existing = await prisma.creatorPriceSnapshot.findUnique({
@@ -49,6 +52,16 @@ export async function upsertPriceSnapshot(
                recordedAt: tradeAt,
             },
          });
+         logger.debug(
+            {
+               creator_id: creatorId,
+               new_price: price.toString(),
+               previous_price: null,
+               ledger: ledger ?? null,
+               ingested_at: new Date().toISOString(),
+            },
+            'price-snapshot: written (first trade)'
+         );
          return;
       }
 
@@ -58,6 +71,16 @@ export async function upsertPriceSnapshot(
             { creatorId, tradeAt, lastTradeAt: existing.lastTradeAt },
             'price-snapshot: skipping stale event (idempotency guard)'
          );
+         return;
+      }
+
+      // Promote currentPrice → price24hAgo when the snapshot is older than 24 h.
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const shouldRotate24h =
+         existing.lastTradeAt && existing.lastTradeAt < twentyFourHoursAgo;
+
+      // Skip write when price is unchanged.
+      if (existing.currentPrice.toString() === price.toString()) {
          return;
       }
 
@@ -83,6 +106,16 @@ export async function upsertPriceSnapshot(
             recordedAt: tradeAt,
          },
       });
+      logger.debug(
+         {
+            creator_id: creatorId,
+            new_price: price.toString(),
+            previous_price: existing.currentPrice.toString(),
+            ledger: ledger ?? null,
+            ingested_at: new Date().toISOString(),
+         },
+         'price-snapshot: written'
+      );
    } catch (err) {
       logger.error({ err, creatorId }, 'price-snapshot: failed to upsert');
       throw err;

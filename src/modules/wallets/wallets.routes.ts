@@ -14,9 +14,9 @@ const walletsRouter = Router();
  * and `creator_id` filters.
  */
 walletsRouter.get(
-    '/:address/activity',
-    cacheControl(ACTIVITY_FEED_CACHE_PRESET),
-    httpGetWalletActivity
+   '/:address/activity',
+   cacheControl(ACTIVITY_FEED_CACHE_PRESET),
+   httpGetWalletActivity
 );
 
 /**

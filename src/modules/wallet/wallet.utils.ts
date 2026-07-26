@@ -9,15 +9,17 @@ import { logger } from '../../utils/logger.utils';
  * the Base32 character set (A-Z, 2-7).
  */
 export function isValidStellarAddress(address: string): boolean {
-    return typeof address === 'string' && /^G[A-Z2-7]{55}$/.test(address);
+   return typeof address === 'string' && /^G[A-Z2-7]{55}$/.test(address);
 }
 
 /**
  * Zod schema that validates a Stellar wallet address using isValidStellarAddress.
  */
 export const StellarAddressSchema = z
-    .string()
-    .refine(isValidStellarAddress, { message: 'Invalid Stellar wallet address' });
+   .string()
+   .refine(isValidStellarAddress, {
+      message: 'Invalid Stellar wallet address',
+   });
 
 /**
  * Service boundary for Stellar wallet identity mapping.

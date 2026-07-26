@@ -5,6 +5,7 @@ import { logger } from '../../utils/logger.utils';
 import { safeRead } from '../../utils/safe-nested-read.utils';
 import { prisma } from '../../utils/prisma.utils';
 import { computePriceChange } from '../../utils/price-change.utils';
+import { compute24hPriceChange } from '../../utils/price.utils';
 
 /**
  * Locked output shape for creator list items.
@@ -127,6 +128,8 @@ export const mapCreatorListItem = async (
       const change = Number(currentPrice - price24hAgo);
       const base = Number(price24hAgo);
       priceChange24h = parseFloat(((change / base) * 100).toFixed(2));
+   if (currentPrice !== null && price24hAgo !== null) {
+      priceChange24h = compute24hPriceChange(currentPrice, price24hAgo);
    }
 
    return {

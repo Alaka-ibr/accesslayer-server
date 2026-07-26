@@ -6,6 +6,7 @@ import {
 } from './creator-profile.schemas';
 import { CREATOR_DETAIL_DEFAULT_SELECT } from '../../constants/creator-detail-include.constants';
 import { formatIsoTimestamp } from '../../utils/iso-timestamp.utils';
+import { compute24hPriceChange } from '../../utils/price.utils';
 import { normalizeSocialLinkUrl } from './creator-social-link-url.utils';
 import { truncateString } from '../../utils/string-truncate.utils';
 import { computePriceChange } from '../../utils/price-change.utils';
@@ -56,6 +57,19 @@ function buildCreatorDetailCacheMissContext(creatorId: string) {
       lookupKeys: ['id', 'handle'],
       source: 'creator-profile-service',
    };
+}
+
+export async function creatorProfileExists(
+   creatorId: string
+): Promise<boolean> {
+   const profile = await prisma.creatorProfile.findFirst({
+      where: {
+         OR: [{ id: creatorId }, { handle: creatorId }],
+      },
+      select: { id: true },
+   });
+
+   return profile !== null;
 }
 
 /**
@@ -122,6 +136,11 @@ export async function getCreatorProfile(
       const change = Number(snapshot.currentPrice - snapshot.price24hAgo);
       const base = Number(snapshot.price24hAgo);
       priceChange24h = parseFloat(((change / base) * 100).toFixed(2));
+   if (snapshot) {
+      priceChange24h = compute24hPriceChange(
+         snapshot.currentPrice,
+         snapshot.price24hAgo
+      );
    }
 
    return {
