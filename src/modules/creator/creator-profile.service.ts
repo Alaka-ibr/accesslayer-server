@@ -8,6 +8,7 @@ import { CREATOR_DETAIL_DEFAULT_SELECT } from '../../constants/creator-detail-in
 import { formatIsoTimestamp } from '../../utils/iso-timestamp.utils';
 import { normalizeSocialLinkUrl } from './creator-social-link-url.utils';
 import { truncateString } from '../../utils/string-truncate.utils';
+import { computePriceChange } from '../../utils/price-change.utils';
 
 const CREATOR_PROFILE_LIMITS = {
    displayName: 80,
@@ -24,7 +25,7 @@ function normalizeProfileLinks(
       return links;
    }
 
-   return links.map((link) => ({
+   return links.map(link => ({
       ...link,
       label: truncateString(link.label, CREATOR_PROFILE_LIMITS.linkLabel),
       url: normalizeSocialLinkUrl(link.url),
@@ -38,7 +39,7 @@ function normalizeProfilePerks(
       return perks;
    }
 
-   return perks.map((perk) => ({
+   return perks.map(perk => ({
       ...perk,
       title: truncateString(perk.title, CREATOR_PROFILE_LIMITS.perkTitle),
       description: truncateString(
@@ -107,8 +108,17 @@ export async function getCreatorProfile(
       lastTradeAt: Date | null;
    } | null;
 
+   const ONE_DAY_MS = 86_400_000;
    let priceChange24h: number | null = null;
-   if (snapshot && snapshot.price24hAgo !== BigInt(0)) {
+
+   const computedChange = await computePriceChange(
+      profile.id,
+      ONE_DAY_MS,
+      prisma
+   );
+   if (computedChange !== null) {
+      priceChange24h = computedChange;
+   } else if (snapshot && snapshot.price24hAgo !== BigInt(0)) {
       const change = Number(snapshot.currentPrice - snapshot.price24hAgo);
       const base = Number(snapshot.price24hAgo);
       priceChange24h = parseFloat(((change / base) * 100).toFixed(2));
@@ -149,7 +159,10 @@ export async function upsertCreatorProfile(
    const normalizedPayload: UpsertCreatorProfileBody = {
       ...payload,
       displayName: payload.displayName
-         ? truncateString(payload.displayName, CREATOR_PROFILE_LIMITS.displayName)
+         ? truncateString(
+              payload.displayName,
+              CREATOR_PROFILE_LIMITS.displayName
+           )
          : payload.displayName,
       bio: payload.bio
          ? truncateString(payload.bio, CREATOR_PROFILE_LIMITS.bio)

@@ -34,16 +34,18 @@ export const httpListCreators: AsyncController = async (req, res, next) => {
       warnIfUnrecognizedCreatorListSort(ctx.query, req.requestId);
 
       // Validate query parameters
-      const parsed = parsePublicQuery(
-         CreatorListQuerySchema, 
-         ctx.query,
-         { debugContext: 'creator-list-query' }
-      );
+      const parsed = parsePublicQuery(CreatorListQuerySchema, ctx.query, {
+         debugContext: 'creator-list-query',
+      });
       if (!parsed.ok) {
          // Increment filter parse error counter
          const category = categorizeParseError(parsed.details);
          incrementFilterParseError('/api/v1/creators', category);
-         return sendValidationError(res, 'Invalid query parameters', parsed.details);
+         return sendValidationError(
+            res,
+            'Invalid query parameters',
+            parsed.details
+         );
       }
       const validatedQuery = parsed.data;
 
@@ -60,7 +62,7 @@ export const httpListCreators: AsyncController = async (req, res, next) => {
       // Fetch creators and total count
       const [creators, total] = await fetchCreatorList(validatedQuery);
 
-      const response: CreatorListResponse = serializeCreatorListResponse(
+      const response: CreatorListResponse = await serializeCreatorListResponse(
          creators,
          buildOffsetPaginationMeta({
             limit: validatedQuery.limit,
@@ -86,7 +88,12 @@ function categorizeParseError(
    details: Array<{ field: string; message: string }>
 ): FilterParseErrorCategory {
    // Check for unknown key errors (strict mode violations)
-   if (details.some(d => d.message.includes('unrecognized') || d.message.includes('unknown'))) {
+   if (
+      details.some(
+         d =>
+            d.message.includes('unrecognized') || d.message.includes('unknown')
+      )
+   ) {
       return 'unknown_key';
    }
    // Default to invalid_value for type/range errors

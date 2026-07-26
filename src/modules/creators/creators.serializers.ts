@@ -121,10 +121,11 @@ export function normalizeCreatorListItems(
  * @param profiles - Array of full creator profiles (null/undefined treated as empty)
  * @returns Array of creator list items
  */
-export function serializeCreatorList(
+export async function serializeCreatorList(
    profiles: CreatorProfile[] | null | undefined
-): CreatorListItem[] {
-   return normalizeCreatorListItems(profiles).map(mapCreatorListItem);
+): Promise<CreatorListItem[]> {
+   const items = normalizeCreatorListItems(profiles);
+   return Promise.all(items.map(mapCreatorListItem));
 }
 
 /**
@@ -186,12 +187,12 @@ export type CreatorCursorListResponse = PublicCreatorListEnvelope<
  * This centralizes the wrapping of creators and metadata to ensure
  * a consistent public response shape (envelope).
  */
-export function serializeCreatorListResponse(
+export async function serializeCreatorListResponse(
    profiles: CreatorProfile[],
    meta: OffsetPaginationMeta
-): CreatorListResponse {
+): Promise<CreatorListResponse> {
    return wrapPublicCreatorListResponse(
-      serializeCreatorList(profiles),
+      await serializeCreatorList(profiles),
       serializeCreatorListOffsetMeta(meta)
    );
 }
@@ -202,12 +203,12 @@ export function serializeCreatorListResponse(
  * This keeps cursor metadata and creator summary shaping out of route handlers
  * while reusing the existing public list envelope shape.
  */
-export function serializeCursorAwareCreatorListResponse(
+export async function serializeCursorAwareCreatorListResponse(
    profiles: CreatorProfile[],
    meta: CursorPaginationMeta
-): CreatorCursorListResponse {
+): Promise<CreatorCursorListResponse> {
    return wrapPublicCreatorListResponse(
-      serializeCreatorList(profiles),
+      await serializeCreatorList(profiles),
       serializeCreatorListCursorMeta(meta)
    );
 }

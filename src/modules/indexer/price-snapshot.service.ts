@@ -6,11 +6,11 @@ import { prisma } from '../../utils/prisma.utils';
 import { logger } from '../../utils/logger.utils';
 
 export interface TradeEventPayload {
-  creatorId: string;
-  /** Trade price in stroops */
-  price: bigint;
-  /** ISO timestamp of the trade */
-  tradeAt: Date;
+   creatorId: string;
+   /** Trade price in stroops */
+   price: bigint;
+   /** ISO timestamp of the trade */
+   tradeAt: Date;
 }
 
 /**
@@ -22,51 +22,69 @@ export interface TradeEventPayload {
  *
  * Idempotent: re-processing the same event produces the same state.
  */
-export async function upsertPriceSnapshot(event: TradeEventPayload): Promise<void> {
-  const { creatorId, price, tradeAt } = event;
+export async function upsertPriceSnapshot(
+   event: TradeEventPayload
+): Promise<void> {
+   const { creatorId, price, tradeAt } = event;
 
-  try {
-    const existing = await prisma.creatorPriceSnapshot.findUnique({
-      where: { creatorId },
-    });
-
-    if (!existing) {
-      // First ever trade — seed both price fields with current price.
-      await prisma.creatorPriceSnapshot.create({
-        data: {
-          creatorId,
-          currentPrice: price,
-          price24hAgo: price,
-          lastTradeAt: tradeAt,
-        },
+   try {
+      const existing = await prisma.creatorPriceSnapshot.findUnique({
+         where: { creatorId },
       });
-      return;
-    }
 
-    // Idempotency: skip if this event is older than the last recorded trade.
-    if (existing.lastTradeAt && tradeAt <= existing.lastTradeAt) {
-      logger.debug(
-        { creatorId, tradeAt, lastTradeAt: existing.lastTradeAt },
-        'price-snapshot: skipping stale event (idempotency guard)'
-      );
-      return;
-    }
+      if (!existing) {
+         // First ever trade — seed both price fields with current price.
+         await prisma.creatorPriceSnapshot.create({
+            data: {
+               creatorId,
+               currentPrice: price,
+               price24hAgo: price,
+               lastTradeAt: tradeAt,
+            },
+         });
+         await prisma.creatorPriceHistory.create({
+            data: {
+               creatorId,
+               price,
+               recordedAt: tradeAt,
+            },
+         });
+         return;
+      }
 
-    // Promote currentPrice → price24hAgo when the snapshot is older than 24 h.
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const shouldRotate24h =
-      existing.lastTradeAt && existing.lastTradeAt < twentyFourHoursAgo;
+      // Idempotency: skip if this event is older than the last recorded trade.
+      if (existing.lastTradeAt && tradeAt <= existing.lastTradeAt) {
+         logger.debug(
+            { creatorId, tradeAt, lastTradeAt: existing.lastTradeAt },
+            'price-snapshot: skipping stale event (idempotency guard)'
+         );
+         return;
+      }
 
-    await prisma.creatorPriceSnapshot.update({
-      where: { creatorId },
-      data: {
-        currentPrice: price,
-        price24hAgo: shouldRotate24h ? existing.currentPrice : existing.price24hAgo,
-        lastTradeAt: tradeAt,
-      },
-    });
-  } catch (err) {
-    logger.error({ err, creatorId }, 'price-snapshot: failed to upsert');
-    throw err;
-  }
+      // Promote currentPrice → price24hAgo when the snapshot is older than 24 h.
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const shouldRotate24h =
+         existing.lastTradeAt && existing.lastTradeAt < twentyFourHoursAgo;
+
+      await prisma.creatorPriceSnapshot.update({
+         where: { creatorId },
+         data: {
+            currentPrice: price,
+            price24hAgo: shouldRotate24h
+               ? existing.currentPrice
+               : existing.price24hAgo,
+            lastTradeAt: tradeAt,
+         },
+      });
+      await prisma.creatorPriceHistory.create({
+         data: {
+            creatorId,
+            price,
+            recordedAt: tradeAt,
+         },
+      });
+   } catch (err) {
+      logger.error({ err, creatorId }, 'price-snapshot: failed to upsert');
+      throw err;
+   }
 }

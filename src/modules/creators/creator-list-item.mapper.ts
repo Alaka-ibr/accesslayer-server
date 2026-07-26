@@ -3,6 +3,8 @@ import { requestContextStorage } from '../../utils/als.utils';
 import { formatIsoTimestamp } from '../../utils/iso-timestamp.utils';
 import { logger } from '../../utils/logger.utils';
 import { safeRead } from '../../utils/safe-nested-read.utils';
+import { prisma } from '../../utils/prisma.utils';
+import { computePriceChange } from '../../utils/price-change.utils';
 
 /**
  * Locked output shape for creator list items.
@@ -47,7 +49,9 @@ function logIfFieldTypeMismatch(
 
    const expectedType = CREATOR_LIST_FIELD_EXPECTED_TYPES[fieldName];
    const typeMatches =
-      expectedType === 'Date' ? value instanceof Date : typeof value === expectedType;
+      expectedType === 'Date'
+         ? value instanceof Date
+         : typeof value === expectedType;
 
    if (!typeMatches) {
       logger.error({
@@ -80,12 +84,13 @@ function warnIfUnexpectedNullCreatorField(
 }
 
 /**
- * Pure, dumb mapper from a full `CreatorProfile` to a `CreatorListItem`.
- * No filtering, no business logic — deterministic and predictable.
+ * Maps a full `CreatorProfile` to a `CreatorListItem`.
+ * The price change is fetched from the price history table with a fallback
+ * to the snapshot-level 24h-ago data.
  */
-export const mapCreatorListItem = (
+export const mapCreatorListItem = async (
    creator: CreatorProfile
-): CreatorListItem => {
+): Promise<CreatorListItem> => {
    warnIfUnexpectedNullCreatorField(creator, 'displayName');
 
    logIfFieldTypeMismatch(creator, 'id');
@@ -104,8 +109,21 @@ export const mapCreatorListItem = (
    const currentPrice = snapshot?.currentPrice ?? null;
    const price24hAgo = snapshot?.price24hAgo ?? null;
 
+   const ONE_DAY_MS = 86_400_000;
    let priceChange24h: number | null = null;
-   if (currentPrice !== null && price24hAgo !== null && price24hAgo !== BigInt(0)) {
+
+   const computedChange = await computePriceChange(
+      creator.id,
+      ONE_DAY_MS,
+      prisma
+   );
+   if (computedChange !== null) {
+      priceChange24h = computedChange;
+   } else if (
+      currentPrice !== null &&
+      price24hAgo !== null &&
+      price24hAgo !== BigInt(0)
+   ) {
       const change = Number(currentPrice - price24hAgo);
       const base = Number(price24hAgo);
       priceChange24h = parseFloat(((change / base) * 100).toFixed(2));

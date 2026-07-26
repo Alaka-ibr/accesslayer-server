@@ -9,7 +9,10 @@ import {
 import { buildOffsetPaginationMeta } from '../../utils/pagination.utils';
 import { logger } from '../../utils/logger.utils';
 import { envConfig } from '../../config';
-import { buildCreatorFeedWhere, CreatorFeedWhere } from './creator-feed-filter-combinator.utils';
+import {
+   buildCreatorFeedWhere,
+   CreatorFeedWhere,
+} from './creator-feed-filter-combinator.utils';
 import { CREATOR_LIST_DEFAULT_SELECT } from '../../constants/creator-list-projection.constants';
 import { getCachedCreatorList, setCachedCreatorList } from './creators.cache';
 import { captureQueryPlan } from '../../utils/query-plan.utils';
@@ -28,9 +31,15 @@ export async function fetchCreatorList(
       return [cached.creators, cached.total];
    }
 
-   const { limit, offset, sort, order, verified, search, minPrice, maxPrice } = query;
+   const { limit, offset, sort, order, verified, search, minPrice, maxPrice } =
+      query;
 
-   const where = buildCreatorFeedWhere({ verified, search, minPrice, maxPrice });
+   const where = buildCreatorFeedWhere({
+      verified,
+      search,
+      minPrice,
+      maxPrice,
+   });
    const orderBy = mapCreatorListSort(sort, order);
 
    // Fetch creators and total count in parallel
@@ -92,10 +101,10 @@ export async function fetchCreatorList(
  * const emptyResponse = createEmptyCreatorListResponse(validatedQuery);
  * // Returns: { items: [], meta: { limit, offset, total: 0, hasMore: false } }
  */
-export function createEmptyCreatorListResponse(
+export async function createEmptyCreatorListResponse(
    query: CreatorListQueryType
-): CreatorListResponse {
-   return serializeCreatorListResponse(
+): Promise<CreatorListResponse> {
+   return await serializeCreatorListResponse(
       [],
       buildOffsetPaginationMeta({
          limit: query.limit,
@@ -142,7 +151,9 @@ export function buildCreatorFeedExplainSql(where: CreatorFeedWhere): string {
  * @param where - The Prisma where clause produced by `buildCreatorFeedWhere`.
  * @returns An array of values in the same order as the SQL placeholders.
  */
-export function buildCreatorFeedExplainParams(where: CreatorFeedWhere): unknown[] {
+export function buildCreatorFeedExplainParams(
+   where: CreatorFeedWhere
+): unknown[] {
    const params: unknown[] = [];
 
    if (where.isVerified !== undefined) {
