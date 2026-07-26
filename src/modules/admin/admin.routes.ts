@@ -1,5 +1,8 @@
 import { Router } from 'express';
-import { httpUpdateCreatorMetadata, httpReplayIndexerEvents } from './admin.controllers';
+import {
+   httpUpdateCreatorMetadata,
+   httpReplayIndexerEvents,
+} from './admin.controllers';
 import { adminGuard } from '../../middlewares/admin-guard.middleware';
 
 const adminRouter = Router();

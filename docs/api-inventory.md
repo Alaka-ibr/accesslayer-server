@@ -48,11 +48,11 @@ Manage trade webhooks for creator profiles.
 
 - Trade webhooks reference (payload shape, retry behavior, delivery guarantees): [`docs/webhooks.md`](./webhooks.md).
 
-| Method   | Path                                | Description                                           |
-| :------- | :---------------------------------- | :---------------------------------------------------- |
-| `POST`   | `/creators/:id/webhooks`            | Register a new webhook for trade events.              |
-| `GET`    | `/creators/:id/webhooks`            | List all registered webhooks for the creator.         |
-| `DELETE` | `/creators/:id/webhooks/:webhookId` | Delete a registered webhook.                          |
+| Method   | Path                                | Description                                   |
+| :------- | :---------------------------------- | :-------------------------------------------- |
+| `POST`   | `/creators/:id/webhooks`            | Register a new webhook for trade events.      |
+| `GET`    | `/creators/:id/webhooks`            | List all registered webhooks for the creator. |
+| `DELETE` | `/creators/:id/webhooks/:webhookId` | Delete a registered webhook.                  |
 
 ## Activity Module
 

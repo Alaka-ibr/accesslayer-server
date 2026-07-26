@@ -12,6 +12,7 @@ import { attachTimestampHeader } from '../../utils/timestamp-headers.utils';
 import { parsePublicQuery } from '../../utils/public-query-parse.utils';
 import { buildOffsetPaginationMeta } from '../../utils/pagination.utils';
 import { handleCreatorParamNotFound } from '../creator/creator.utils';
+import { parseCreatorId } from '../../utils/creator-id.utils';
 
 /**
  * Controller for GET /api/v1/creators/:id/holders
@@ -24,23 +25,34 @@ import { handleCreatorParamNotFound } from '../creator/creator.utils';
  * - Default sort: largest key_balance first.
  * - Optional ?sort=held_since returns earliest buyers first.
  */
-export const httpGetCreatorHolders: AsyncController = async (req, res, next) => {
+export const httpGetCreatorHolders: AsyncController = async (
+   req,
+   res,
+   next
+) => {
    try {
-      const rawId = req.params['id'];
-      const id = typeof rawId === 'string' ? rawId : String(rawId ?? '');
+      const rawId = req.params.id;
+      const creatorId = parseCreatorId(Array.isArray(rawId) ? rawId[0] : rawId);
 
       const parsed = parsePublicQuery(CreatorHoldersQuerySchema, req.query, {
          debugContext: 'creator-holders-query',
       });
 
       if (!parsed.ok) {
-         return sendValidationError(res, 'Invalid query parameters', parsed.details);
+         return sendValidationError(
+            res,
+            'Invalid query parameters',
+            parsed.details
+         );
       }
 
-      const creator = await findCreatorByIdOrHandle(id);
+      const creator = await findCreatorByIdOrHandle(String(creatorId));
       if (!handleCreatorParamNotFound(res, creator)) return;
 
-      const [holders, total] = await fetchCreatorHolders(creator.id, parsed.data);
+      const [holders, total] = await fetchCreatorHolders(
+         creator.id,
+         parsed.data
+      );
 
       const meta = buildOffsetPaginationMeta({
          limit: parsed.data.limit,

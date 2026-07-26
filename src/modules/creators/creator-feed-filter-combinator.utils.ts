@@ -5,11 +5,17 @@ import { CreatorFilterInput } from './creators.filter';
 import { normalizeCreatorListSearchTerm } from './creators.search-term.utils';
 
 export type CreatorFeedWhere = {
-  isVerified?: boolean;
-  OR?: Array<{
-    handle?: { contains: string; mode: 'insensitive' };
-    displayName?: { contains: string; mode: 'insensitive' };
-  }>;
+   isVerified?: boolean;
+   OR?: Array<{
+      handle?: { contains: string; mode: 'insensitive' };
+      displayName?: { contains: string; mode: 'insensitive' };
+   }>;
+   priceSnapshot?: {
+      currentPrice?: {
+         gte?: bigint;
+         lte?: bigint;
+      };
+   };
 };
 
 /**
@@ -18,7 +24,7 @@ export type CreatorFeedWhere = {
  * Keeps filter semantics identical to the creator list endpoint while giving
  * feed handlers a single call-site instead of inline combinator branches.
  *
- * @param filters - Parsed creator filter input (verified, search)
+ * @param filters - Parsed creator filter input (verified, search, minPrice, maxPrice)
  * @returns A Prisma-compatible where object ready for `prisma.creatorProfile.findMany`
  *
  * @example
@@ -26,23 +32,44 @@ export type CreatorFeedWhere = {
  * // => { isVerified: true, OR: [{ handle: ... }, { displayName: ... }] }
  *
  * @example
+ * const where = buildCreatorFeedWhere({ minPrice: 1000000n, maxPrice: 5000000n });
+ * // => { priceSnapshot: { currentPrice: { gte: 1000000n, lte: 5000000n } } }
+ *
+ * @example
  * const where = buildCreatorFeedWhere({});
  * // => {}
  */
-export function buildCreatorFeedWhere(filters: CreatorFilterInput): CreatorFeedWhere {
-  const where: CreatorFeedWhere = {};
+export function buildCreatorFeedWhere(
+   filters: CreatorFilterInput
+): CreatorFeedWhere {
+   const where: CreatorFeedWhere = {};
 
-  if (filters.verified !== undefined) {
-    where.isVerified = filters.verified;
-  }
+   if (filters.verified !== undefined) {
+      where.isVerified = filters.verified;
+   }
 
-  const normalizedSearch = normalizeCreatorListSearchTerm(filters.search);
-  if (normalizedSearch) {
-    where.OR = [
-      { handle: { contains: normalizedSearch, mode: 'insensitive' } },
-      { displayName: { contains: normalizedSearch, mode: 'insensitive' } },
-    ];
-  }
+   const normalizedSearch = normalizeCreatorListSearchTerm(filters.search);
+   if (normalizedSearch) {
+      where.OR = [
+         { handle: { contains: normalizedSearch, mode: 'insensitive' } },
+         { displayName: { contains: normalizedSearch, mode: 'insensitive' } },
+      ];
+   }
 
-  return where;
+   // Price range filtering
+   if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.priceSnapshot = {
+         currentPrice: {},
+      };
+
+      if (filters.minPrice !== undefined) {
+         where.priceSnapshot.currentPrice!.gte = filters.minPrice;
+      }
+
+      if (filters.maxPrice !== undefined) {
+         where.priceSnapshot.currentPrice!.lte = filters.maxPrice;
+      }
+   }
+
+   return where;
 }

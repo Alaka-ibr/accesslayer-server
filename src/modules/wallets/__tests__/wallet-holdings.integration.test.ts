@@ -10,125 +10,145 @@ import { HoldingEntry } from '../wallet-holdings.schemas';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const VALID_ADDRESS = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const VALID_ADDRESS =
+   'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 const MALFORMED_ADDRESS = 'not-a-stellar-address';
 
-function makeReq(params: Record<string, string> = {}): any {
-    return { params };
+function makeReq(
+   params: Record<string, string> = {},
+   query: Record<string, any> = {}
+): any {
+   return { params, query };
 }
 
 function makeRes(): any {
-    const res: any = {};
-    res.status = jest.fn().mockReturnValue(res);
-    res.setHeader = jest.fn().mockReturnValue(res);
-    res.json = jest.fn().mockReturnValue(res);
-    return res;
+   const res: any = {};
+   res.status = jest.fn().mockReturnValue(res);
+   res.setHeader = jest.fn().mockReturnValue(res);
+   res.json = jest.fn().mockReturnValue(res);
+   return res;
 }
 
 function makeNext(): jest.Mock {
-    return jest.fn();
+   return jest.fn();
 }
 
 function makeHolding(overrides: Partial<HoldingEntry> = {}): HoldingEntry {
-    return {
-        creator_id: 'creator-1',
-        creator_handle: 'alice',
-        key_count: '5',
-        current_price: '100',
-        total_value: null,
-        ...overrides,
-    };
+   return {
+      creator_id: 'creator-1',
+      creator_handle: 'alice',
+      key_count: '5',
+      current_price: '100',
+      total_value: null,
+      ...overrides,
+   };
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('GET /wallets/:address/holdings', () => {
-    afterEach(() => {
-        jest.restoreAllMocks();
-    });
+   afterEach(() => {
+      jest.restoreAllMocks();
+   });
 
-    it('returns 200 with items and total for a wallet with holdings', async () => {
-        const holdings: HoldingEntry[] = [
-            makeHolding({ creator_id: 'creator-1', creator_handle: 'alice', key_count: '5' }),
-            makeHolding({ creator_id: 'creator-2', creator_handle: 'bob', key_count: '3' }),
-        ];
-        jest.spyOn(walletHoldingsService, 'fetchWalletHoldings').mockResolvedValue([holdings, 2]);
-
-        const req = makeReq({ address: VALID_ADDRESS });
-        const res = makeRes();
-        await httpGetWalletHoldings(req, res, makeNext());
-
-        expect(res.status).toHaveBeenCalledWith(200);
-        const body = res.json.mock.calls[0][0];
-        expect(body.success).toBe(true);
-        expect(body.data.items).toHaveLength(2);
-        expect(body.data.total).toBe(2);
-    });
-
-    it('each holding includes required fields', async () => {
-        const holding = makeHolding({
+   it('returns 200 with items and meta for a wallet with holdings', async () => {
+      const holdings: HoldingEntry[] = [
+         makeHolding({
             creator_id: 'creator-1',
             creator_handle: 'alice',
-            key_count: '10',
-            current_price: '200',
-            total_value: null,
-        });
-        jest.spyOn(walletHoldingsService, 'fetchWalletHoldings').mockResolvedValue([[holding], 1]);
+            key_count: '5',
+         }),
+         makeHolding({
+            creator_id: 'creator-2',
+            creator_handle: 'bob',
+            key_count: '3',
+         }),
+      ];
+      jest
+         .spyOn(walletHoldingsService, 'fetchWalletHoldings')
+         .mockResolvedValue([holdings, 2]);
 
-        const req = makeReq({ address: VALID_ADDRESS });
-        const res = makeRes();
-        await httpGetWalletHoldings(req, res, makeNext());
+      const req = makeReq({ address: VALID_ADDRESS });
+      const res = makeRes();
+      await httpGetWalletHoldings(req, res, makeNext());
 
-        const item = res.json.mock.calls[0][0].data.items[0];
-        expect(item).toMatchObject({
-            creator_id: 'creator-1',
-            creator_handle: 'alice',
-            key_count: '10',
-            current_price: '200',
-        });
-    });
+      expect(res.status).toHaveBeenCalledWith(200);
+      const body = res.json.mock.calls[0][0];
+      expect(body.success).toBe(true);
+      expect(body.data.items).toHaveLength(2);
+      expect(body.data.meta.total).toBe(2);
+   });
 
-    it('returns 200 with empty items for a wallet with no holdings', async () => {
-        jest.spyOn(walletHoldingsService, 'fetchWalletHoldings').mockResolvedValue([[], 0]);
+   it('each holding includes required fields', async () => {
+      const holding = makeHolding({
+         creator_id: 'creator-1',
+         creator_handle: 'alice',
+         key_count: '10',
+         current_price: '200',
+         total_value: null,
+      });
+      jest
+         .spyOn(walletHoldingsService, 'fetchWalletHoldings')
+         .mockResolvedValue([[holding], 1]);
 
-        const req = makeReq({ address: VALID_ADDRESS });
-        const res = makeRes();
-        await httpGetWalletHoldings(req, res, makeNext());
+      const req = makeReq({ address: VALID_ADDRESS });
+      const res = makeRes();
+      await httpGetWalletHoldings(req, res, makeNext());
 
-        expect(res.status).toHaveBeenCalledWith(200);
-        const body = res.json.mock.calls[0][0];
-        expect(body.data.items).toEqual([]);
-        expect(body.data.total).toBe(0);
-    });
+      const item = res.json.mock.calls[0][0].data.items[0];
+      expect(item).toMatchObject({
+         creator_id: 'creator-1',
+         creator_handle: 'alice',
+         key_count: '10',
+         current_price: '200',
+      });
+   });
 
-    it('returns 400 for a malformed Stellar address', async () => {
-        const req = makeReq({ address: MALFORMED_ADDRESS });
-        const res = makeRes();
-        await httpGetWalletHoldings(req, res, makeNext());
+   it('returns 200 with empty items for a wallet with no holdings', async () => {
+      jest
+         .spyOn(walletHoldingsService, 'fetchWalletHoldings')
+         .mockResolvedValue([[], 0]);
 
-        expect(res.status).toHaveBeenCalledWith(400);
-        const body = res.json.mock.calls[0][0];
-        expect(body.success).toBe(false);
-        expect(body.error.code).toBe('VALIDATION_ERROR');
-    });
+      const req = makeReq({ address: VALID_ADDRESS });
+      const res = makeRes();
+      await httpGetWalletHoldings(req, res, makeNext());
 
-    it('returns 400 for an address starting with wrong character', async () => {
-        const req = makeReq({ address: 'A' + 'A'.repeat(55) });
-        const res = makeRes();
-        await httpGetWalletHoldings(req, res, makeNext());
+      expect(res.status).toHaveBeenCalledWith(200);
+      const body = res.json.mock.calls[0][0];
+      expect(body.data.items).toEqual([]);
+      expect(body.data.meta.total).toBe(0);
+   });
 
-        expect(res.status).toHaveBeenCalledWith(400);
-    });
+   it('returns 400 for a malformed Stellar address', async () => {
+      const req = makeReq({ address: MALFORMED_ADDRESS });
+      const res = makeRes();
+      await httpGetWalletHoldings(req, res, makeNext());
 
-    it('forwards service errors to next()', async () => {
-        const err = new Error('db down');
-        jest.spyOn(walletHoldingsService, 'fetchWalletHoldings').mockRejectedValue(err);
+      expect(res.status).toHaveBeenCalledWith(400);
+      const body = res.json.mock.calls[0][0];
+      expect(body.success).toBe(false);
+      expect(body.error.code).toBe('VALIDATION_ERROR');
+   });
 
-        const req = makeReq({ address: VALID_ADDRESS });
-        const res = makeRes();
-        const next = makeNext();
-        await httpGetWalletHoldings(req, res, next);
+   it('returns 400 for an address starting with wrong character', async () => {
+      const req = makeReq({ address: 'A' + 'A'.repeat(55) });
+      const res = makeRes();
+      await httpGetWalletHoldings(req, res, makeNext());
 
-        expect(next).toHaveBeenCalledWith(err);
-    });
+      expect(res.status).toHaveBeenCalledWith(400);
+   });
+
+   it('forwards service errors to next()', async () => {
+      const err = new Error('db down');
+      jest
+         .spyOn(walletHoldingsService, 'fetchWalletHoldings')
+         .mockRejectedValue(err);
+
+      const req = makeReq({ address: VALID_ADDRESS });
+      const res = makeRes();
+      const next = makeNext();
+      await httpGetWalletHoldings(req, res, next);
+
+      expect(next).toHaveBeenCalledWith(err);
+   });
 });

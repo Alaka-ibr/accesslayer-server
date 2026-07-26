@@ -2,6 +2,7 @@ import { Response } from 'express';
 import {
    sendForbidden,
    sendUnauthorized,
+   sendCreatorParamNotFound,
    buildErrorResponse,
    zodIssuesToDetails,
    ErrorCode,
@@ -17,6 +18,7 @@ describe('api-response.utils', () => {
       jsonMock = jest.fn();
       statusMock = jest.fn().mockReturnValue({ json: jsonMock });
       mockResponse = {
+         setHeader: jest.fn(),
          status: statusMock,
       };
    });
@@ -65,11 +67,29 @@ describe('api-response.utils', () => {
          });
       });
    });
+
+   describe('sendCreatorParamNotFound', () => {
+      it('should send the shared creator parameter not-found response', () => {
+         sendCreatorParamNotFound(mockResponse as Response);
+
+         expect(statusMock).toHaveBeenCalledWith(404);
+         expect(jsonMock).toHaveBeenCalledWith({
+            success: false,
+            error: {
+               code: ErrorCode.NOT_FOUND,
+               message: 'Creator not found',
+            },
+         });
+      });
+   });
 });
 
 describe('buildErrorResponse', () => {
    it('returns a well-formed error body without requestId when no ALS context is active', () => {
-      const body = buildErrorResponse(ErrorCode.NOT_FOUND, 'Resource not found');
+      const body = buildErrorResponse(
+         ErrorCode.NOT_FOUND,
+         'Resource not found'
+      );
       expect(body).toEqual({
          success: false,
          error: { code: ErrorCode.NOT_FOUND, message: 'Resource not found' },
@@ -90,23 +110,28 @@ describe('buildErrorResponse', () => {
 
    it('omits requestId when ALS context has no requestId', () => {
       let body: ReturnType<typeof buildErrorResponse> | undefined;
-      requestContextStorage.run(
-         { path: '/test', method: 'GET' },
-         () => {
-            body = buildErrorResponse(ErrorCode.INTERNAL_ERROR, 'Oops');
-         }
-      );
+      requestContextStorage.run({ path: '/test', method: 'GET' }, () => {
+         body = buildErrorResponse(ErrorCode.INTERNAL_ERROR, 'Oops');
+      });
       expect(body!).not.toHaveProperty('requestId');
    });
 
    it('includes details when provided', () => {
       const details = [{ field: 'email', message: 'Required' }];
-      const body = buildErrorResponse(ErrorCode.VALIDATION_ERROR, 'Invalid', details);
+      const body = buildErrorResponse(
+         ErrorCode.VALIDATION_ERROR,
+         'Invalid',
+         details
+      );
       expect(body.error.details).toEqual(details);
    });
 
    it('omits details key when details array is empty', () => {
-      const body = buildErrorResponse(ErrorCode.VALIDATION_ERROR, 'Invalid', []);
+      const body = buildErrorResponse(
+         ErrorCode.VALIDATION_ERROR,
+         'Invalid',
+         []
+      );
       expect(body.error).not.toHaveProperty('details');
    });
 
@@ -119,7 +144,11 @@ describe('buildErrorResponse', () => {
       let body: ReturnType<typeof buildErrorResponse> | undefined;
 
       requestContextStorage.run(
-         { path: '/api/v1/creators', method: 'GET', requestId: expectedRequestId },
+         {
+            path: '/api/v1/creators',
+            method: 'GET',
+            requestId: expectedRequestId,
+         },
          () => {
             capturedRequestId = requestContextStorage.getStore()?.requestId;
             body = buildErrorResponse(ErrorCode.INTERNAL_ERROR, 'Server error');
@@ -135,23 +164,37 @@ describe('buildErrorResponse', () => {
 describe('zodIssuesToDetails', () => {
    it('maps a single issue to a details entry', () => {
       const result = zodIssuesToDetails([
-         { path: ['email'], message: 'Invalid email', code: 'invalid_string' } as any,
+         {
+            path: ['email'],
+            message: 'Invalid email',
+            code: 'invalid_string',
+         } as any,
       ]);
       expect(result).toEqual([{ field: 'email', message: 'Invalid email' }]);
    });
 
    it('joins nested paths with a dot', () => {
       const result = zodIssuesToDetails([
-         { path: ['address', 'city'], message: 'Required', code: 'invalid_type' } as any,
+         {
+            path: ['address', 'city'],
+            message: 'Required',
+            code: 'invalid_type',
+         } as any,
       ]);
       expect(result).toEqual([{ field: 'address.city', message: 'Required' }]);
    });
 
    it('produces an empty string field for root-level issues', () => {
       const result = zodIssuesToDetails([
-         { path: [], message: 'Input must be an object', code: 'invalid_type' } as any,
+         {
+            path: [],
+            message: 'Input must be an object',
+            code: 'invalid_type',
+         } as any,
       ]);
-      expect(result).toEqual([{ field: '', message: 'Input must be an object' }]);
+      expect(result).toEqual([
+         { field: '', message: 'Input must be an object' },
+      ]);
    });
 
    it('returns an empty array for an empty issues list', () => {
@@ -161,7 +204,11 @@ describe('zodIssuesToDetails', () => {
    it('maps multiple issues preserving order', () => {
       const result = zodIssuesToDetails([
          { path: ['name'], message: 'Required', code: 'invalid_type' } as any,
-         { path: ['age'], message: 'Must be a number', code: 'invalid_type' } as any,
+         {
+            path: ['age'],
+            message: 'Must be a number',
+            code: 'invalid_type',
+         } as any,
       ]);
       expect(result).toEqual([
          { field: 'name', message: 'Required' },

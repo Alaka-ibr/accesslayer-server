@@ -6,6 +6,7 @@ import {
 } from './creator-profile.schemas';
 import { CREATOR_DETAIL_DEFAULT_SELECT } from '../../constants/creator-detail-include.constants';
 import { formatIsoTimestamp } from '../../utils/iso-timestamp.utils';
+import { compute24hPriceChange } from '../../utils/price.utils';
 import { normalizeSocialLinkUrl } from './creator-social-link-url.utils';
 import { truncateString } from '../../utils/string-truncate.utils';
 
@@ -24,7 +25,7 @@ function normalizeProfileLinks(
       return links;
    }
 
-   return links.map((link) => ({
+   return links.map(link => ({
       ...link,
       label: truncateString(link.label, CREATOR_PROFILE_LIMITS.linkLabel),
       url: normalizeSocialLinkUrl(link.url),
@@ -38,7 +39,7 @@ function normalizeProfilePerks(
       return perks;
    }
 
-   return perks.map((perk) => ({
+   return perks.map(perk => ({
       ...perk,
       title: truncateString(perk.title, CREATOR_PROFILE_LIMITS.perkTitle),
       description: truncateString(
@@ -55,6 +56,19 @@ function buildCreatorDetailCacheMissContext(creatorId: string) {
       lookupKeys: ['id', 'handle'],
       source: 'creator-profile-service',
    };
+}
+
+export async function creatorProfileExists(
+   creatorId: string
+): Promise<boolean> {
+   const profile = await prisma.creatorProfile.findFirst({
+      where: {
+         OR: [{ id: creatorId }, { handle: creatorId }],
+      },
+      select: { id: true },
+   });
+
+   return profile !== null;
 }
 
 /**
@@ -91,11 +105,28 @@ export async function getCreatorProfile(
          updatedAt: null,
          perks: [],
          links: [],
+         currentPrice: null,
+         price24hAgo: null,
+         priceChange24h: null,
          metadata: {
             source: 'placeholder',
             isProfileComplete: false,
          },
       };
+   }
+
+   const snapshot = (profile as any).priceSnapshot as {
+      currentPrice: bigint;
+      price24hAgo: bigint;
+      lastTradeAt: Date | null;
+   } | null;
+
+   let priceChange24h: number | null = null;
+   if (snapshot) {
+      priceChange24h = compute24hPriceChange(
+         snapshot.currentPrice,
+         snapshot.price24hAgo
+      );
    }
 
    return {
@@ -107,6 +138,9 @@ export async function getCreatorProfile(
       updatedAt: formatIsoTimestamp(profile.updatedAt),
       perks: (profile.perks as any) || [],
       links: [], // Links are not yet in the Prisma model, keeping as part of contract
+      currentPrice: snapshot ? snapshot.currentPrice.toString() : null,
+      price24hAgo: snapshot ? snapshot.price24hAgo.toString() : null,
+      priceChange24h,
       metadata: {
          source: 'database',
          isProfileComplete: !!profile.displayName && !!profile.bio,
@@ -130,7 +164,10 @@ export async function upsertCreatorProfile(
    const normalizedPayload: UpsertCreatorProfileBody = {
       ...payload,
       displayName: payload.displayName
-         ? truncateString(payload.displayName, CREATOR_PROFILE_LIMITS.displayName)
+         ? truncateString(
+              payload.displayName,
+              CREATOR_PROFILE_LIMITS.displayName
+           )
          : payload.displayName,
       bio: payload.bio
          ? truncateString(payload.bio, CREATOR_PROFILE_LIMITS.bio)

@@ -9,7 +9,10 @@ import {
 import { buildOffsetPaginationMeta } from '../../utils/pagination.utils';
 import { logger } from '../../utils/logger.utils';
 import { envConfig } from '../../config';
-import { buildCreatorFeedWhere, CreatorFeedWhere } from './creator-feed-filter-combinator.utils';
+import {
+   buildCreatorFeedWhere,
+   CreatorFeedWhere,
+} from './creator-feed-filter-combinator.utils';
 import { CREATOR_LIST_DEFAULT_SELECT } from '../../constants/creator-list-projection.constants';
 import { getCachedCreatorList, setCachedCreatorList } from './creators.cache';
 import { captureQueryPlan } from '../../utils/query-plan.utils';
@@ -28,9 +31,15 @@ export async function fetchCreatorList(
       return [cached.creators, cached.total];
    }
 
-   const { limit, offset, sort, order, verified, search } = query;
+   const { limit, offset, sort, order, verified, search, minPrice, maxPrice } =
+      query;
 
-   const where = buildCreatorFeedWhere({ verified, search });
+   const where = buildCreatorFeedWhere({
+      verified,
+      search,
+      minPrice,
+      maxPrice,
+   });
    const orderBy = mapCreatorListSort(sort, order);
 
    // Fetch creators and total count in parallel
@@ -47,6 +56,26 @@ export async function fetchCreatorList(
    ]);
 
    const durationMs = Date.now() - start;
+
+   // Emit a structured debug log after every creator list query (#550).
+   // Only include filter keys that were actually provided in the request;
+   // cursor is intentionally excluded from the log output.
+   const activeFilters: Record<string, unknown> = {};
+   if (verified !== undefined) activeFilters.verified = verified;
+   if (search !== undefined && search !== '') activeFilters.search = search;
+   if (minPrice !== undefined) activeFilters.minPrice = minPrice.toString();
+   if (maxPrice !== undefined) activeFilters.maxPrice = maxPrice.toString();
+
+   logger.debug(
+      {
+         result_count: creators.length,
+         filters: activeFilters,
+         sort,
+         query_duration_ms: durationMs,
+      },
+      'Creator list query resolved'
+   );
+
    if (durationMs > envConfig.CREATOR_LIST_SLOW_QUERY_THRESHOLD_MS) {
       // In debug (development) mode, capture the query execution plan so
       // missing indexes and inefficient joins are immediately visible in logs.
@@ -142,7 +171,9 @@ export function buildCreatorFeedExplainSql(where: CreatorFeedWhere): string {
  * @param where - The Prisma where clause produced by `buildCreatorFeedWhere`.
  * @returns An array of values in the same order as the SQL placeholders.
  */
-export function buildCreatorFeedExplainParams(where: CreatorFeedWhere): unknown[] {
+export function buildCreatorFeedExplainParams(
+   where: CreatorFeedWhere
+): unknown[] {
    const params: unknown[] = [];
 
    if (where.isVerified !== undefined) {
