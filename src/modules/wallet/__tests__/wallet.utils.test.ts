@@ -49,6 +49,30 @@ describe('isValidStellarAddress', () => {
    it('returns false for a random non-address string', () => {
       expect(isValidStellarAddress('not-a-stellar-address')).toBe(false);
    });
+
+   // Adjacent invalid formats seen in real API submissions (#638)
+
+   it('returns false for an otherwise-valid address with one lowercase character', () => {
+      const addr = 'G' + 'a' + 'A'.repeat(54);
+      expect(isValidStellarAddress(addr)).toBe(false);
+   });
+
+   it('returns false for an address starting with G that contains a 0 (not valid base32)', () => {
+      const addr = 'G' + '0' + 'A'.repeat(54);
+      expect(isValidStellarAddress(addr)).toBe(false);
+   });
+
+   it('returns false for a valid address with a leading space', () => {
+      expect(isValidStellarAddress(' ' + VALID_ADDRESS)).toBe(false);
+   });
+
+   it('returns false for a valid address with a trailing newline', () => {
+      expect(isValidStellarAddress(VALID_ADDRESS + '\n')).toBe(false);
+   });
+
+   it('returns true for the existing valid address (regression guard)', () => {
+      expect(isValidStellarAddress(VALID_ADDRESS)).toBe(true);
+   });
 });
 
 describe('StellarAddressSchema', () => {

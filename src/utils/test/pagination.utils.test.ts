@@ -102,4 +102,21 @@ describe('buildPaginatedResponse', () => {
       expect(result.has_more).toBe(false);
       expect(result.next_cursor).toBeNull();
    });
+
+   it('returns has_more: true with 1 item when limit is 1 and there are 2 results', () => {
+      const result = buildPaginatedResponse(items.slice(0, 2), 1, cursorFn);
+
+      expect(result.items).toEqual(items.slice(0, 1));
+      expect(result.has_more).toBe(true);
+      expect(result.next_cursor).toBe('1');
+   });
+
+   it('returns has_more: false with the single item when limit is 1 and there is exactly 1 result', () => {
+      const result = buildPaginatedResponse(items.slice(0, 1), 1, cursorFn);
+
+      expect(result.items).toEqual(items.slice(0, 1));
+      expect(result.items).toHaveLength(1);
+      expect(result.has_more).toBe(false);
+      expect(result.next_cursor).toBeNull();
+   });
 });
