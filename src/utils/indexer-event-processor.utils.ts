@@ -49,17 +49,80 @@ export async function processIndexerChainEvent<T extends IndexerChainEvent>(
 }
 
 /**
+ * Ledger range covered by a batch of chain events, derived from the
+ * `ledger` field present on each event.
+ */
+interface BatchLedgerRange {
+   fromLedger: number | undefined;
+   toLedger: number | undefined;
+}
+
+/**
+ * Derives the ledger range (min/max) covered by a batch of chain events.
+ *
+ * Events without a `ledger` value are ignored. If no event in the batch
+ * has a `ledger`, both bounds are `undefined`.
+ */
+function getBatchLedgerRange<T extends ChainEvent>(
+   events: T[]
+): BatchLedgerRange {
+   const ledgers = events
+      .map(event => event.ledger)
+      .filter((ledger): ledger is number => typeof ledger === 'number');
+
+   if (ledgers.length === 0) {
+      return { fromLedger: undefined, toLedger: undefined };
+   }
+
+   return {
+      fromLedger: Math.min(...ledgers),
+      toLedger: Math.max(...ledgers),
+   };
+}
+
+/**
  * Dedupes a batch of chain events and processes each unique event sequentially.
  *
  * Each event emits one structured log entry via {@link processIndexerChainEvent}.
+ *
+ * The batch itself also emits exactly two structured logs:
+ * - An info-level log when the batch starts, with the ledger range and
+ *   the size of the incoming batch (before deduplication).
+ * - A debug-level log when the batch completes, with the ledger range,
+ *   the number of unique events actually processed, and the wall-clock
+ *   duration of the whole batch.
  */
 export async function processIndexerChainEvents<T extends IndexerChainEvent>(
    events: T[],
    handler: (event: T) => Promise<void>
 ): Promise<void> {
+   const { fromLedger, toLedger } = getBatchLedgerRange(events);
+   const batchTimer = startTimer();
+
+   logger.info(
+      {
+         type: 'indexer_batch_started',
+         from_ledger: fromLedger,
+         to_ledger: toLedger,
+         batch_size: events.length,
+      },
+      'Indexer batch started'
+   );
+
    const uniqueEvents = dedupeChainEvents(events);
 
    for (const event of uniqueEvents) {
       await processIndexerChainEvent(event, handler);
    }
+
+   logger.debug(
+      {
+         type: 'indexer_batch_completed',
+         from_ledger: fromLedger,
+         to_ledger: toLedger,
+         events_processed: uniqueEvents.length,
+         duration_ms: elapsedMs(batchTimer),
+      },
+      'Indexer batch completed'
+   );
 }
