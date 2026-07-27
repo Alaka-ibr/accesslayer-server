@@ -140,8 +140,11 @@ async function deliverPriceAlertWebhook(
 ): Promise<void> {
    const maxAttempts = envConfig.WEBHOOK_RETRY_MAX_ATTEMPTS;
    const maskedUrl = maskCallbackUrl(alert.callbackUrl);
+   const threshold = toNumber(alert.targetPrice as string | number | { toString(): string });
+   const triggeredPrice = toNumber(payload.current_price as string | number | { toString(): string });
 
    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const attemptedAt = new Date();
       try {
          const response = await fetch(alert.callbackUrl, {
             method: 'POST',
@@ -153,6 +156,18 @@ async function deliverPriceAlertWebhook(
             throw new Error(`HTTP_${response.status}`);
          }
 
+         logger.debug(
+            {
+               alert_id: alert.id,
+               creator_id: alert.creatorId,
+               threshold,
+               triggered_price: triggeredPrice,
+               delivery_status: 'success',
+               attempted_at: attemptedAt,
+            },
+            'Price alert delivery attempt completed'
+         );
+
          return;
       } catch (error) {
          const logFields = {
@@ -163,6 +178,18 @@ async function deliverPriceAlertWebhook(
                error instanceof Error ? error.message : 'Unknown error',
             masked_url: maskedUrl,
          };
+
+         logger.debug(
+            {
+               alert_id: alert.id,
+               creator_id: alert.creatorId,
+               threshold,
+               triggered_price: triggeredPrice,
+               delivery_status: 'failed',
+               attempted_at: attemptedAt,
+            },
+            'Price alert delivery attempt completed'
+         );
 
          if (attempt === maxAttempts) {
             logger.error(
