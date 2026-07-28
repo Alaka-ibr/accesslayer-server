@@ -117,9 +117,7 @@ function categorizeParseError(
 export const httpGetCreatorStats: AsyncController = async (req, res, next) => {
    try {
       const rawId = req.params.id;
-      const parsedId = parseCreatorId(
-         Array.isArray(rawId) ? rawId[0] : rawId
-      );
+      const parsedId = parseCreatorId(Array.isArray(rawId) ? rawId[0] : rawId);
       const creatorIdStr = String(parsedId);
 
       const creator = await prisma.creatorProfile.findFirst({
@@ -128,17 +126,36 @@ export const httpGetCreatorStats: AsyncController = async (req, res, next) => {
       });
       const resolvedId = creator ? creator.id : creatorIdStr;
 
-      const holderCount = await prisma.keyOwnership.count({
-         where: {
-            creatorId: resolvedId,
-            balance: { gt: 0 },
-         },
-      });
+      const [holderCount, supplyAggregate, priceSnapshot] = await Promise.all([
+         prisma.keyOwnership.count({
+            where: {
+               creatorId: resolvedId,
+               balance: { gt: 0 },
+            },
+         }),
+         // Bug fix (#678): totalSupply was previously hardcoded to 0 instead
+         // of being derived from the ownership read model, so it never
+         // reflected keys minted by buy transactions.
+         prisma.keyOwnership.aggregate({
+            where: { creatorId: resolvedId },
+            _sum: { balance: true },
+         }),
+         prisma.creatorPriceSnapshot.findUnique({
+            where: { creatorId: resolvedId },
+            select: { currentPrice: true },
+         }),
+      ]);
+
+      const totalSupply = Number(supplyAggregate._sum.balance ?? 0);
+      const currentPrice = priceSnapshot
+         ? priceSnapshot.currentPrice.toString()
+         : null;
 
       const metrics = {
          holderCount,
-         totalSupply: 0,
+         totalSupply,
          totalVolume: 0,
+         currentPrice,
          lastActivityAt: undefined,
       };
 
@@ -175,12 +192,92 @@ export const httpGetCreator: AsyncController = async (req, res, next) => {
 };
 
 /**
+ * Controller for GET /api/v1/creators/leaderboard
+ *
+ * Returns creators ranked by holder count descending. Ties are broken
+ * alphabetically by creator (Stellar wallet) address so the ordering is
+ * stable across requests regardless of database iteration order.
+ */
+export const httpGetCreatorLeaderboard: AsyncController = async (
+   _req,
+   res,
+   next
+) => {
+   try {
+      const creators = await prisma.creatorProfile.findMany({
+         select: {
+            id: true,
+            handle: true,
+            priceSnapshot: {
+               select: { currentPrice: true },
+            },
+            user: {
+               select: {
+                  stellarWallet: {
+                     select: { address: true },
+                  },
+               },
+            },
+         },
+      });
+
+      const entries = await Promise.all(
+         creators.map(async creator => {
+            const holderCount = await prisma.keyOwnership.count({
+               where: {
+                  creatorId: creator.id,
+                  balance: { gt: 0 },
+               },
+            });
+
+            const address =
+               (creator as any).user?.stellarWallet?.address ?? creator.handle;
+            const currentPrice = (creator as any).priceSnapshot
+               ? (creator as any).priceSnapshot.currentPrice.toString()
+               : '0';
+
+            return {
+               creator: address as string,
+               holder_count: holderCount,
+               current_price: currentPrice,
+            };
+         })
+      );
+
+      entries.sort((a, b) => {
+         if (b.holder_count !== a.holder_count) {
+            return b.holder_count - a.holder_count;
+         }
+         // Stable, deterministic tie-break: ascending alphabetical order
+         // by creator address.
+         if (a.creator < b.creator) return -1;
+         if (a.creator > b.creator) return 1;
+         return 0;
+      });
+
+      const items = entries.map((entry, index) => ({
+         rank: index + 1,
+         ...entry,
+      }));
+
+      attachTimestampHeader(res);
+      sendSuccess(res, { items });
+   } catch (error) {
+      next(error);
+   }
+};
+
+/**
  * Controller for GET /api/v1/creators/trending
  *
  * Returns creators ordered by 24h trading volume descending.
  * Respects pagination limit parameters.
  */
-export const httpGetTrendingCreators: AsyncController = async (req, res, next) => {
+export const httpGetTrendingCreators: AsyncController = async (
+   req,
+   res,
+   next
+) => {
    try {
       const ctx = buildCreatorListRequestContext(req);
 
@@ -212,7 +309,7 @@ export const httpGetTrendingCreators: AsyncController = async (req, res, next) =
 
       // Compute volume for each creator
       const creatorsWithVolume = await Promise.all(
-         creators.map(async (creator) => {
+         creators.map(async creator => {
             const volume = await compute24hVolume(creator.id);
             return {
                id: creator.id,
