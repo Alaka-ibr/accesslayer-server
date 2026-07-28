@@ -16,18 +16,18 @@ const httpRegisterCreator = async (req: any, res: any) => {
    const { wallet, displayName } = req.body;
    
    try {
-      const existing = await prisma.creatorProfile.findFirst({
-         where: { address: wallet }
+      const existing = await (prisma.creatorProfile.findFirst as any)({
+         where: { handle: wallet }
       });
       
       if (existing) {
          return res.status(409).json({ error: 'creator_already_exists' });
       }
       
-      const creator = await prisma.creatorProfile.create({
+      const creator = await (prisma.creatorProfile.create as any)({
          data: {
             id: `creator-${Date.now()}`,
-            address: wallet,
+            handle: wallet,
             displayName: displayName || 'New Creator',
             userId: req.user.id
          }
@@ -47,11 +47,11 @@ describe('Creator Registration Endpoint Integration (Placeholder)', () => {
    const wallet = 'GABC111111111111111111111111111111111111111111111111WXYZ';
    
    beforeAll(async () => {
-      await prisma.creatorProfile.deleteMany({ where: { address: wallet } });
+      await (prisma.creatorProfile.deleteMany as any)({ where: { handle: wallet } });
    });
    
    afterAll(async () => {
-      await prisma.creatorProfile.deleteMany({ where: { address: wallet } });
+      await (prisma.creatorProfile.deleteMany as any)({ where: { handle: wallet } });
    });
    
    it('returns 401 for unauthenticated requests', async () => {
@@ -69,11 +69,11 @@ describe('Creator Registration Endpoint Integration (Placeholder)', () => {
          .send({ wallet, displayName: 'Test Creator' });
          
       expect(response.status).toBe(201);
-      expect(response.body.data).toHaveProperty('address', wallet);
+      expect(response.body.data).toHaveProperty('handle', wallet);
       expect(response.body.data).toHaveProperty('displayName', 'Test Creator');
       
-      const dbRecord = await prisma.creatorProfile.findFirst({
-         where: { address: wallet }
+      const dbRecord = await (prisma.creatorProfile.findFirst as any)({
+         where: { handle: wallet }
       });
       expect(dbRecord).toBeTruthy();
    });
