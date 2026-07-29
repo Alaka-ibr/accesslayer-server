@@ -1,4 +1,4 @@
-import { computeBuyCost } from './pricing.utils';
+import { computeBuyCost, computeSellPayout } from './pricing.utils';
 
 describe('computeBuyCost', () => {
    it('amount 1 at supply 0 returns base cost only', () => {
@@ -29,5 +29,48 @@ describe('computeBuyCost', () => {
    it('never returns a negative value for any valid input', () => {
       const cost = computeBuyCost(100, 0, 500);
       expect(cost).toBeGreaterThanOrEqual(0n);
+   });
+});
+
+describe('computeSellPayout', () => {
+   it('sell of 1 key at supply 10 with 5% fee returns the correct net payout', () => {
+      // Gross: price of the key at supply 9 = 10_000_000 + 9_000_000 = 19_000_000
+      // Fee: 5% of 19_000_000 = 950_000
+      // Net: 19_000_000 - 950_000 = 18_050_000
+      const payout = computeSellPayout(10, 1, 500);
+      expect(payout).toBe(18_050_000n);
+   });
+
+   it('0% fee returns the full gross payout', () => {
+      const payout = computeSellPayout(10, 1, 0);
+      expect(payout).toBe(19_000_000n);
+   });
+
+   it('100% fee returns 0 net payout', () => {
+      const payout = computeSellPayout(10, 1, 10000);
+      expect(payout).toBe(0n);
+   });
+
+   it('selling the last key (supply becomes 0) returns the base price minus fee', () => {
+      // Base price at supply 0 = 10_000_000. 5% fee = 500_000. Net = 9_500_000.
+      const payout = computeSellPayout(1, 1, 500);
+      expect(payout).toBe(9_500_000n);
+   });
+
+   it('payout is always a non-negative integer in stroops', () => {
+      const normal = computeSellPayout(10, 5, 500);
+      expect(normal).toBeGreaterThanOrEqual(0n);
+      expect(typeof normal).toBe('bigint');
+
+      // A fee rate above 100% would make gross - fee negative; must clamp to 0.
+      const overFee = computeSellPayout(10, 1, 20000);
+      expect(overFee).toBe(0n);
+
+      const zeroAmount = computeSellPayout(10, 0, 500);
+      expect(zeroAmount).toBe(0n);
+   });
+
+   it('throws when selling more keys than the current supply', () => {
+      expect(() => computeSellPayout(1, 2, 500)).toThrow();
    });
 });
