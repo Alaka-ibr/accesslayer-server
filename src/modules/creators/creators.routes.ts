@@ -17,6 +17,9 @@ import { validateCreatorParam } from '../../middlewares/creator-param.middleware
 import {
    requireCreatorProfileOwnership,
 } from '../../middlewares/wallet-ownership.middleware';
+import { requireStellarSignature } from '../../middlewares/stellar-signature.middleware';
+import { httpBuyCreatorKey } from '../creator/buy.controller';
+import { httpCreatePost, httpListPosts } from '../creator/post.controller';
 
 const creatorsRouter = Router();
 
