@@ -65,7 +65,6 @@ jest.mock('../../config', () => ({
 // ── Imports (after jest.mock so hoisting ensures they resolve to the mocks) ───
 
 import { httpGetCreatorAnalytics } from './creators.controllers';
-import { prisma } from '../../utils/prisma.utils';
 
 // ── Lightweight request/response mocks ────────────────────────────────────────
 
