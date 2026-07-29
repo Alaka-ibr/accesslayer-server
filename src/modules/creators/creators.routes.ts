@@ -5,6 +5,7 @@ import {
    httpGetCreatorStats,
    httpGetTrendingCreators,
    httpGetCreatorLeaderboard,
+   httpGetCreatorAnalytics,
 } from './creators.controllers';
 import { httpGetCreatorHolders } from './creator-holders.controller';
 import { cacheControl } from '../../middlewares/cache-control.middleware';
@@ -13,6 +14,9 @@ import { CREATOR_PUBLIC_ROUTE_NAMES } from '../../constants/creator-public-route
 import { createCreatorReadMetricsMiddleware } from '../../utils/creator-read-metrics.utils';
 import { normalizeTrailingSlash } from '../../middlewares/trailing-slash-normalizer.middleware';
 import { validateCreatorParam } from '../../middlewares/creator-param.middleware';
+import {
+   requireCreatorProfileOwnership,
+} from '../../middlewares/wallet-ownership.middleware';
 import { requireStellarSignature } from '../../middlewares/stellar-signature.middleware';
 import { httpBuyCreatorKey } from '../creator/buy.controller';
 import { httpCreatePost, httpListPosts } from '../creator/post.controller';
@@ -108,6 +112,23 @@ creatorsRouter.get(
    createCreatorReadMetricsMiddleware('list'),
    httpGetTrendingCreators
 );
+
+/**
+ * GET /api/v1/creators/:id/analytics
+ *
+ * Returns buy volume and unique buyer count for the authenticated creator.
+ * Protected route — requires wallet ownership via x-wallet-address header.
+ */
+creatorsRouter.get(
+   '/:id/analytics',
+   validateCreatorParam('id'),
+   requireCreatorProfileOwnership('id'),
+   httpGetCreatorAnalytics
+);
+// 405 handler for /:id/analytics
+creatorsRouter.all('/:id/analytics', (_req, res) => {
+   res.set('Allow', 'GET').sendStatus(405);
+});
 
 /**
  * GET /api/v1/creators/leaderboard

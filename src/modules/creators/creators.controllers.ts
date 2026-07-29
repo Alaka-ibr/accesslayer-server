@@ -268,6 +268,61 @@ export const httpGetCreatorLeaderboard: AsyncController = async (
 };
 
 /**
+ * Controller for GET /api/v1/creators/:id/analytics
+ *
+ * Returns buy volume (total XLM spent in stroops) and unique buyer count
+ * aggregated from the creator's trade history.
+ * Requires wallet ownership — only the authenticated creator can access
+ * their own analytics.
+ */
+export const httpGetCreatorAnalytics: AsyncController = async (
+   req,
+   res,
+   next
+) => {
+   try {
+      const rawId = req.params.id;
+      const creatorId = Array.isArray(rawId) ? rawId[0] : rawId;
+
+      // Resolve the creator profile to get the canonical ID
+      const creator = await prisma.creatorProfile.findFirst({
+         where: { OR: [{ id: creatorId }, { handle: creatorId }] },
+         select: { id: true },
+      });
+      const resolvedId = creator ? creator.id : creatorId;
+
+      // Fetch all trades for this creator
+      const trades = await prisma.trade.findMany({
+         where: { creatorId: resolvedId },
+         select: {
+            buyer: true,
+            price: true,
+         },
+      });
+
+      // Compute total buy volume (sum of prices, in stroops)
+      let buyVolume = 0n;
+      const uniqueBuyers = new Set<string>();
+
+      for (const trade of trades) {
+         const price = BigInt(trade.price);
+         buyVolume += price;
+         uniqueBuyers.add(trade.buyer);
+      }
+
+      const analytics = {
+         buyVolume: buyVolume.toString(),
+         uniqueBuyers: uniqueBuyers.size,
+      };
+
+      attachTimestampHeader(res);
+      sendSuccess(res, analytics);
+   } catch (error) {
+      next(error);
+   }
+};
+
+/**
  * Controller for GET /api/v1/creators/trending
  *
  * Returns creators ordered by 24h trading volume descending.
