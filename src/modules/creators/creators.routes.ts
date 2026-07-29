@@ -25,6 +25,20 @@ const creatorsRouter = Router();
 // Scoped to this router to avoid side-effects on other route groups.
 creatorsRouter.use(normalizeTrailingSlash);
 
+creatorsRouter.post(
+   '/:id/buy',
+   validateCreatorParam('id'),
+   requireStellarSignature(),
+   httpBuyCreatorKey
+);
+creatorsRouter.get('/:id/posts', validateCreatorParam('id'), httpListPosts);
+creatorsRouter.post(
+   '/:id/posts',
+   validateCreatorParam('id'),
+   requireStellarSignature(),
+   httpCreatePost
+);
+
 /**
  * GET /api/v1/creators
  *

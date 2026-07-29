@@ -36,3 +36,48 @@ export function computeBuyCost(currentSupply: number, amount: number, feeBps: nu
 
    return totalCost;
 }
+
+/**
+ * Helper for computing the XLM payout for selling N keys at the current supply using the
+ * bonding curve formula, net of the protocol fee.
+ * Note: This is a placeholder implementation since the real bonding curve math is trapped in an unmerged PR.
+ *
+ * @param currentSupply - The current supply of keys (before the sell)
+ * @param amount - The number of keys to sell
+ * @param feeBps - The protocol fee in basis points (e.g. 500 = 5%)
+ * @returns Net XLM payout in stroops as a bigint (never negative)
+ */
+export function computeSellPayout(currentSupply: number, amount: number, feeBps: number): bigint {
+   if (amount < 0 || currentSupply < 0) {
+      throw new Error('Supply and amount must be non-negative');
+   }
+
+   if (amount > currentSupply) {
+      throw new Error('Cannot sell more keys than the current supply');
+   }
+
+   if (amount === 0) {
+      return 0n;
+   }
+
+   // Same placeholder bonding curve as computeBuyCost. Selling walks the
+   // curve back down: the key at the top of the supply (currentSupply - 1)
+   // is sold first, then currentSupply - 2, and so on.
+   const BASE_COST = 10_000_000n;
+   const STEP = 1_000_000n;
+
+   let grossPayout = 0n;
+   for (let i = 0; i < amount; i++) {
+      const supplyAtSale = BigInt(currentSupply - 1 - i);
+      grossPayout += BASE_COST + (supplyAtSale * STEP);
+   }
+
+   const fee = (grossPayout * BigInt(feeBps)) / 10000n;
+   const netPayout = grossPayout - fee;
+
+   if (netPayout < 0n) {
+      return 0n; // fee exceeding gross (e.g. feeBps > 10000) must never yield a negative payout
+   }
+
+   return netPayout;
+}

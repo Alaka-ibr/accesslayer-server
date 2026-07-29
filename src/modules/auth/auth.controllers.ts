@@ -4,6 +4,7 @@ import { checkUserEmailExists, createNewUserWithPassword } from './auth.utils';
 import { SendMailAsync } from '../../utils/mail.utils';
 import { HTTP_STATUS } from '../../utils/logger.utils';
 import bcrypt from 'bcrypt';
+import { refreshAccessToken } from './token-refresh.utils';
 
 export const httpRegisterUserWithPassword: AsyncController = async (
    req,
@@ -139,13 +140,35 @@ export const httpResetPassword: AsyncController = async (req, res, next) => {
 
 export const httpRefreshToken: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
-      res.status(200).json({
+      const authHeader = req.headers.authorization;
+      const token =
+         (authHeader && authHeader.startsWith('Bearer ')
+            ? authHeader.slice('Bearer '.length)
+            : undefined) ?? req.body?.token;
+
+      if (!token) {
+         return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+            success: false,
+            code: 'invalid_token',
+            message: 'No token provided',
+         });
+      }
+
+      const result = refreshAccessToken(token);
+
+      if (!result.success) {
+         return res.status(result.status).json({
+            success: false,
+            code: result.code,
+            message: 'Token could not be refreshed',
+         });
+      }
+
+      return res.status(HTTP_STATUS.OK).json({
          success: true,
-         message: 'Login Successful',
+         message: 'Token refreshed',
          data: {
-            name: 'Anioke Sebastian',
-            age: 23,
+            accessToken: result.token,
          },
       });
    } catch (error) {
