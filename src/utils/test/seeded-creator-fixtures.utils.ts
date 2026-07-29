@@ -1,25 +1,9 @@
 import { CreatorProfile } from '../../types/profile.types';
+import type { prisma as appPrisma } from '../prisma.utils';
 
 const CREATOR_FIXTURE_BASE_DATE = new Date(Date.UTC(2020, 0, 1));
 
-type CreatorMarketSeedPrisma = {
-   user: {
-      upsert: (args: Record<string, unknown>) => Promise<unknown>;
-   };
-   creatorProfile: {
-      upsert: (args: Record<string, unknown>) => Promise<{
-         id: string;
-         userId: string;
-         handle: string;
-      }>;
-   };
-   creatorPriceSnapshot: {
-      upsert: (args: Record<string, unknown>) => Promise<unknown>;
-   };
-   keyOwnership: {
-      upsert: (args: Record<string, unknown>) => Promise<unknown>;
-   };
-};
+type CreatorMarketSeedPrisma = typeof appPrisma;
 
 export interface CreatorMarketSeedOptions {
    prefix?: string;
