@@ -148,6 +148,7 @@ export const envSchema = z
             'STELLAR_SOROBAN_RPC_URL must be a valid URL (e.g. https://soroban-testnet.stellar.org)'
          )
          .default('https://soroban-testnet.stellar.org'),
+      STELLAR_AUTH_SECRET: optionalNonEmptyString,
 
       // Ownership snapshot cleanup job
       OWNERSHIP_SNAPSHOT_TABLE_NAME: z
