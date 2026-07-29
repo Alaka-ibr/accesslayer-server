@@ -13,6 +13,9 @@ import { CREATOR_PUBLIC_ROUTE_NAMES } from '../../constants/creator-public-route
 import { createCreatorReadMetricsMiddleware } from '../../utils/creator-read-metrics.utils';
 import { normalizeTrailingSlash } from '../../middlewares/trailing-slash-normalizer.middleware';
 import { validateCreatorParam } from '../../middlewares/creator-param.middleware';
+import { requireStellarSignature } from '../../middlewares/stellar-signature.middleware';
+import { httpBuyCreatorKey } from '../creator/buy.controller';
+import { httpCreatePost, httpListPosts } from '../creator/post.controller';
 
 const creatorsRouter = Router();
 
@@ -20,6 +23,20 @@ const creatorsRouter = Router();
 // GET /api/v1/creators/ reaches the same handler as GET /api/v1/creators.
 // Scoped to this router to avoid side-effects on other route groups.
 creatorsRouter.use(normalizeTrailingSlash);
+
+creatorsRouter.post(
+   '/:id/buy',
+   validateCreatorParam('id'),
+   requireStellarSignature(),
+   httpBuyCreatorKey
+);
+creatorsRouter.get('/:id/posts', validateCreatorParam('id'), httpListPosts);
+creatorsRouter.post(
+   '/:id/posts',
+   validateCreatorParam('id'),
+   requireStellarSignature(),
+   httpCreatePost
+);
 
 /**
  * GET /api/v1/creators
