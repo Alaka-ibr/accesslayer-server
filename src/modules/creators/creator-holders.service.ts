@@ -10,6 +10,12 @@ export interface HolderRecord {
    wallet_address: string;
    key_balance: number;
    held_since: Date;
+   /** Alias of key_balance kept for response-shape compatibility. */
+   key_count: number;
+   /** This wallet's share of all outstanding keys for the creator, 0-100. */
+   share_percent: number;
+   /** 1-based position in the full (offset-aware) sorted holder list. */
+   rank: number;
 }
 
 /**
@@ -52,10 +58,14 @@ export async function fetchCreatorHolders(
       balance: { gt: 0 },
    };
 
-   const orderBy: Prisma.KeyOwnershipOrderByWithRelationInput =
-      sort === 'held_since' ? { createdAt: 'asc' } : { balance: 'desc' };
+   // Tie-break alphabetically by wallet address so results are deterministic
+   // when two holders have the same balance.
+   const orderBy: Prisma.KeyOwnershipOrderByWithRelationInput[] =
+      sort === 'held_since'
+         ? [{ createdAt: 'asc' }, { ownerAddress: 'asc' }]
+         : [{ balance: 'desc' }, { ownerAddress: 'asc' }];
 
-   const [rows, total] = await Promise.all([
+   const [rows, total, balanceSum] = await Promise.all([
       prisma.keyOwnership.findMany({
          where,
          orderBy,
@@ -68,13 +78,22 @@ export async function fetchCreatorHolders(
          },
       }),
       prisma.keyOwnership.count({ where }),
+      prisma.keyOwnership.aggregate({ where, _sum: { balance: true } }),
    ]);
 
-   const holders: HolderRecord[] = rows.map(row => ({
-      wallet_address: row.ownerAddress,
-      key_balance: Number(row.balance),
-      held_since: row.createdAt,
-   }));
+   const totalKeys = Number(balanceSum._sum.balance ?? 0);
+
+   const holders: HolderRecord[] = rows.map((row, index) => {
+      const keyBalance = Number(row.balance);
+      return {
+         wallet_address: row.ownerAddress,
+         key_balance: keyBalance,
+         held_since: row.createdAt,
+         key_count: keyBalance,
+         share_percent: totalKeys > 0 ? (keyBalance / totalKeys) * 100 : 0,
+         rank: offset + index + 1,
+      };
+   });
 
    if (holders.length === 0) {
       const durationMs = Date.now() - startMs;
