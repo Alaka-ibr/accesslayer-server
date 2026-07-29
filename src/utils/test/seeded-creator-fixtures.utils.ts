@@ -15,7 +15,7 @@ export interface CreatorMarketSeedOptions {
    price24hAgo?: bigint;
    lastTradeAt?: Date | null;
    walletAddress?: string;
-   balance?: number | string | bigint;
+   balance?: number | string;
 }
 
 export interface SeededCreatorMarketFixture {
@@ -108,7 +108,7 @@ export async function upsertCreatorHolding(
    prisma: CreatorMarketSeedPrisma,
    ownerAddress: string,
    creatorId: string,
-   balance: number | string | bigint
+   balance: number | string
 ): Promise<void> {
    await prisma.keyOwnership.upsert({
       where: {
