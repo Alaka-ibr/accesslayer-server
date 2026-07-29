@@ -148,6 +148,7 @@ export const envSchema = z
             'STELLAR_SOROBAN_RPC_URL must be a valid URL (e.g. https://soroban-testnet.stellar.org)'
          )
          .default('https://soroban-testnet.stellar.org'),
+      STELLAR_AUTH_SECRET: optionalNonEmptyString,
 
       // Ownership snapshot cleanup job
       OWNERSHIP_SNAPSHOT_TABLE_NAME: z
@@ -166,6 +167,14 @@ export const envSchema = z
          .int()
          .positive()
          .default(60),
+
+      // Request body size limits (see docs/body-size-limits.md).
+      // Accepts any size string understood by the `bytes` package used
+      // internally by body-parser (e.g. '100kb', '1mb', '10mb').
+      BODY_SIZE_LIMIT_DEFAULT: z.string().min(1).default('10mb'),
+      BODY_SIZE_LIMIT_AUTH: optionalNonEmptyString,
+      BODY_SIZE_LIMIT_ADMIN: optionalNonEmptyString,
+      BODY_SIZE_LIMIT_CREATORS: optionalNonEmptyString,
    })
    .superRefine((data, ctx) => {
       if (data.MODE === 'production' && data.STELLAR_NETWORK === 'testnet') {
