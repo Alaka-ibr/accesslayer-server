@@ -120,15 +120,7 @@ export const mapCreatorListItem = async (
    );
    if (computedChange !== null) {
       priceChange24h = computedChange;
-   } else if (
-      currentPrice !== null &&
-      price24hAgo !== null &&
-      price24hAgo !== BigInt(0)
-   ) {
-      const change = Number(currentPrice - price24hAgo);
-      const base = Number(price24hAgo);
-      priceChange24h = parseFloat(((change / base) * 100).toFixed(2));
-   if (currentPrice !== null && price24hAgo !== null) {
+   } else if (currentPrice !== null && price24hAgo !== null) {
       priceChange24h = compute24hPriceChange(currentPrice, price24hAgo);
    }
 

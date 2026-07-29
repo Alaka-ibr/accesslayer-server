@@ -132,11 +132,7 @@ export async function getCreatorProfile(
    );
    if (computedChange !== null) {
       priceChange24h = computedChange;
-   } else if (snapshot && snapshot.price24hAgo !== BigInt(0)) {
-      const change = Number(snapshot.currentPrice - snapshot.price24hAgo);
-      const base = Number(snapshot.price24hAgo);
-      priceChange24h = parseFloat(((change / base) * 100).toFixed(2));
-   if (snapshot) {
+   } else if (snapshot) {
       priceChange24h = compute24hPriceChange(
          snapshot.currentPrice,
          snapshot.price24hAgo

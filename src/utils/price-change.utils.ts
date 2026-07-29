@@ -1,7 +1,7 @@
 // src/utils/price-change.utils.ts
 
 interface PriceHistoryClient {
-   creatorPriceHistory: {
+   creatorPriceHistory?: {
       findMany(args: {
          where: { creatorId: string; recordedAt: { gte: Date } };
          orderBy: { recordedAt: 'asc' };
@@ -30,6 +30,10 @@ export async function computePriceChange(
    windowMs: number,
    db: PriceHistoryClient
 ): Promise<number | null> {
+   if (!db.creatorPriceHistory) {
+      return null;
+   }
+
    const cutoff = new Date(Date.now() - windowMs);
 
    const snapshots = await db.creatorPriceHistory.findMany({

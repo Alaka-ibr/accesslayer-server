@@ -27,7 +27,6 @@ export interface TradeEventPayload {
 export async function upsertPriceSnapshot(
    event: TradeEventPayload
 ): Promise<void> {
-   const { creatorId, price, tradeAt } = event;
    const { creatorId, price, tradeAt, ledger } = event;
 
    try {
@@ -73,11 +72,6 @@ export async function upsertPriceSnapshot(
          );
          return;
       }
-
-      // Promote currentPrice → price24hAgo when the snapshot is older than 24 h.
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const shouldRotate24h =
-         existing.lastTradeAt && existing.lastTradeAt < twentyFourHoursAgo;
 
       // Skip write when price is unchanged.
       if (existing.currentPrice.toString() === price.toString()) {
