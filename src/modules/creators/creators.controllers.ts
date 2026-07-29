@@ -367,11 +367,7 @@ export const httpGetTrendingCreators: AsyncController = async (
 
       // Compute volume for each creator
       const creatorsWithVolume = await Promise.all(
- feat/no-results-state
-         creators.map(async (creator: { id: string; handle: string; displayName: string; avatarUrl: string | null; isVerified: boolean; createdAt: Date; updatedAt: Date }) => {
-
          creators.map(async creator => {
- main
             const volume = await compute24hVolume(creator.id);
             return {
                id: creator.id,
