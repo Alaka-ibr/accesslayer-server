@@ -1,0 +1,193 @@
+import { processTradeEvents } from './indexer-pipeline.service';
+import { prisma } from '../../utils/prisma.utils';
+import { logger } from '../../utils/logger.utils';
+import { IndexerChainEvent } from '../../utils/indexer-event-processor.utils';
+
+jest.mock('../../utils/prisma.utils', () => ({
+   prisma: {
+      activity: {
+         create: jest.fn(),
+      },
+      keyOwnership: {
+         findFirst: jest.fn(),
+         upsert: jest.fn(),
+      },
+      creatorPriceSnapshot: {
+         findUnique: jest.fn(),
+         create: jest.fn(),
+         update: jest.fn(),
+      },
+      indexedLedger: {
+         upsert: jest.fn(),
+      },
+   },
+}));
+
+jest.mock('../../utils/logger.utils', () => ({
+   logger: {
+      warn: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+      error: jest.fn(),
+   },
+}));
+
+describe('processTradeEvents integration test', () => {
+   const mockPrisma = prisma as unknown as {
+      activity: { create: jest.Mock };
+      keyOwnership: { findFirst: jest.Mock; upsert: jest.Mock };
+      creatorPriceSnapshot: { findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+      indexedLedger: { upsert: jest.Mock };
+   };
+   const mockLogger = logger as unknown as {
+      warn: jest.Mock;
+   };
+
+    beforeEach(() => {
+       jest.clearAllMocks();
+       mockPrisma.keyOwnership.upsert.mockResolvedValue({ balance: -50 });
+       mockPrisma.indexedLedger.upsert.mockResolvedValue({});
+    });
+
+   it('correctly processes and persists a valid sell event', async () => {
+      const event: IndexerChainEvent = {
+         txHash: '0xhash123',
+         eventIndex: 0,
+         eventType: 'KEY_SOLD',
+         ledger: 12345,
+         creatorId: 'creator-abc',
+         actor: 'G_SELLER_ADDRESS',
+         amount: 50,
+         price: 2000n,
+         feePaid: 10n,
+         tradeAt: '2026-07-25T12:00:00.000Z',
+      };
+
+      mockPrisma.keyOwnership.findFirst.mockResolvedValue(null);
+      mockPrisma.creatorPriceSnapshot.findUnique.mockResolvedValue(null);
+
+      await processTradeEvents([event]);
+
+      // 1. Assert Activity record created with correct fields
+      expect(mockPrisma.activity.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.activity.create).toHaveBeenCalledWith({
+         data: {
+            type: 'KEY_SOLD',
+            actor: 'G_SELLER_ADDRESS',
+            creatorId: 'creator-abc',
+            payload: {
+               amount: 50,
+               price_at_trade: '2000',
+               fee_paid: '10',
+               ledger_sequence: 12345,
+            },
+            createdAt: new Date('2026-07-25T12:00:00.000Z'),
+         },
+      });
+
+      // 2. Assert updateOwnership was triggered (negative amount for sell)
+      expect(mockPrisma.keyOwnership.upsert).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.keyOwnership.upsert).toHaveBeenCalledWith(
+         expect.objectContaining({
+            create: {
+               ownerAddress: 'G_SELLER_ADDRESS',
+               creatorId: 'creator-abc',
+               balance: -50,
+            },
+         })
+      );
+
+      // 3. Assert upsertPriceSnapshot was triggered
+      expect(mockPrisma.creatorPriceSnapshot.create).toHaveBeenCalledTimes(1);
+      expect(mockPrisma.creatorPriceSnapshot.create).toHaveBeenCalledWith({
+         data: {
+            creatorId: 'creator-abc',
+            currentPrice: 2000n,
+            price24hAgo: 2000n,
+            lastTradeAt: new Date('2026-07-25T12:00:00.000Z'),
+         },
+      });
+   });
+
+   it('deduplicates sell events based on txHash and eventIndex', async () => {
+      const event: IndexerChainEvent = {
+         txHash: '0xhash123',
+         eventIndex: 0,
+         eventType: 'KEY_SOLD',
+         ledger: 12345,
+         creatorId: 'creator-abc',
+         actor: 'G_SELLER_ADDRESS',
+         amount: 50,
+         price: 2000n,
+         feePaid: 10n,
+         tradeAt: '2026-07-25T12:00:00.000Z',
+      };
+
+      mockPrisma.keyOwnership.findFirst.mockResolvedValue(null);
+      mockPrisma.creatorPriceSnapshot.findUnique.mockResolvedValue(null);
+
+      // Pass duplicate events
+      await processTradeEvents([event, event]);
+
+      expect(mockPrisma.activity.create).toHaveBeenCalledTimes(1);
+   });
+
+    it('skips a sell event with missing required fields and logs a warning', async () => {
+       const malformedEvent: IndexerChainEvent = {
+          txHash: '0xhash123',
+          eventIndex: 0,
+          eventType: 'KEY_SOLD',
+          ledger: 12345,
+          // creatorId is missing
+          actor: 'G_SELLER_ADDRESS',
+          amount: 50,
+          price: 2000n,
+          feePaid: 10n,
+          tradeAt: '2026-07-25T12:00:00.000Z',
+       } as any;
+
+       await processTradeEvents([malformedEvent]);
+
+       expect(mockPrisma.activity.create).not.toHaveBeenCalled();
+       expect(mockLogger.warn).toHaveBeenCalledTimes(1);
+       expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({ missingField: 'creatorId' }),
+          expect.any(String)
+       );
+    });
+
+    it('emits a warn log when checkpoint write fails and continues processing', async () => {
+       const event: IndexerChainEvent = {
+          txHash: '0xhash456',
+          eventIndex: 0,
+          eventType: 'KEY_SOLD',
+          ledger: 99999,
+          creatorId: 'creator-xyz',
+          actor: 'G_BUYER_ADDRESS',
+          amount: 30,
+          price: 1500n,
+          feePaid: 5n,
+          tradeAt: '2026-07-25T13:00:00.000Z',
+       };
+
+       mockPrisma.keyOwnership.findFirst.mockResolvedValue(null);
+       mockPrisma.creatorPriceSnapshot.findUnique.mockResolvedValue(null);
+       mockPrisma.indexedLedger.upsert.mockRejectedValue(new Error('DB timeout'));
+
+       await processTradeEvents([event]);
+
+       // Processing still completes despite checkpoint failure
+       expect(mockPrisma.activity.create).toHaveBeenCalledTimes(1);
+
+       // A warn log is emitted for the checkpoint failure
+       expect(mockLogger.warn).toHaveBeenCalledWith(
+          expect.objectContaining({
+             ledger: 99999,
+             error_reason: 'DB timeout',
+             failed_at: expect.any(String),
+             batch_hash: expect.any(String),
+          }),
+          'Indexer checkpoint write failed'
+       );
+    });
+});

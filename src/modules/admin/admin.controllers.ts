@@ -2,7 +2,7 @@ import { AsyncController } from '../../types/auth.types';
 import {
    sendSuccess,
    sendValidationError,
-   sendNotFound,
+   sendCreatorParamNotFound,
    sendForbidden,
 } from '../../utils/api-response.utils';
 import { prisma } from '../../utils/prisma.utils';
@@ -61,7 +61,7 @@ export const httpUpdateCreatorMetadata: AsyncController = async (
       });
 
       if (!creator) {
-         return sendNotFound(res, 'Creator');
+         return sendCreatorParamNotFound(res);
       }
 
       const previousValues = {
@@ -99,78 +99,106 @@ export const httpUpdateCreatorMetadata: AsyncController = async (
    }
 };
 
-export const httpReplayIndexerEvents: AsyncController = async (req: AdminRequest, res: Response, next) => {
-  try {
-    const { startLedger, dryRun = false } = req.body as { startLedger?: number; dryRun?: boolean };
-    const adminId = req.adminId;
-    const lockName = 'indexer-replay';
-    const lockOwner = adminId || 'unknown';
+export const httpReplayIndexerEvents: AsyncController = async (
+   req: AdminRequest,
+   res: Response,
+   next
+) => {
+   try {
+      const {
+         startLedger,
+         endLedger,
+         dryRun = false,
+      } = req.body as {
+         startLedger?: number;
+         endLedger?: number;
+         dryRun?: boolean;
+      };
+      const adminId = req.adminId;
+      const lockName = 'indexer-replay';
+      const lockOwner = adminId || 'unknown';
 
-    if (typeof startLedger !== 'number' || startLedger < 1) {
-      return sendValidationError(res, 'Invalid request body', [
-        { field: 'startLedger', message: 'startLedger must be a positive integer' },
-      ]);
-    }
-    if (typeof dryRun !== 'boolean') {
-      return sendValidationError(res, 'Invalid request body', [
-        { field: 'dryRun', message: 'dryRun must be a boolean' },
-      ]);
-    }
-
-    const lock = acquireJobLock({
-      name: lockName,
-      owner: lockOwner,
-    });
-
-    if (!lock.acquired) {
-      return res.status(409).json({
-        success: false,
-        error: {
-          code: ErrorCode.CONFLICT,
-          message: 'Indexer replay job is already running',
-          details: [
+      if (typeof startLedger !== 'number' || startLedger < 1) {
+         return sendValidationError(res, 'Invalid request body', [
             {
-              field: 'indexerReplayLock',
-              message: `Lock is held by ${lock.holder || 'another worker'} until ${lock.expiresAt || 'unknown time'}`,
+               field: 'startLedger',
+               message: 'startLedger must be a positive integer',
             },
-          ],
-        },
+         ]);
+      }
+
+      if (
+         endLedger !== undefined &&
+         (typeof endLedger !== 'number' || endLedger < startLedger)
+      ) {
+         return sendValidationError(res, 'Invalid request body', [
+            { field: 'endLedger', message: 'endLedger must be >= startLedger' },
+         ]);
+      }
+
+      if (typeof dryRun !== 'boolean') {
+         return sendValidationError(res, 'Invalid request body', [
+            { field: 'dryRun', message: 'dryRun must be a boolean' },
+         ]);
+      }
+
+      const lock = acquireJobLock({
+         name: lockName,
+         owner: lockOwner,
       });
-    }
 
-    const replayInitiated = {
-      type: 'INDEXER_REPLAY_INITIATED',
-      startLedger,
-      dryRun,
-      initiatedBy: adminId,
-      lock: {
-        name: lockName,
-        expiresAt: lock.expiresAt,
-      },
-      timestamp: new Date().toISOString(),
-    };
+      if (!lock.acquired) {
+         return res.status(409).json({
+            success: false,
+            error: {
+               code: ErrorCode.CONFLICT,
+               message: 'Indexer replay job is already running',
+               details: [
+                  {
+                     field: 'indexerReplayLock',
+                     message: `Lock is held by ${lock.holder || 'another worker'} until ${lock.expiresAt || 'unknown time'}`,
+                  },
+               ],
+            },
+         });
+      }
 
-    logger.info(
-      {
-        lockName,
-        lockOwner,
-        lockExpiresAt: lock.expiresAt,
-      },
-      'Acquired background job lock for indexer replay'
-    );
+      const replayInitiated = {
+         type: 'INDEXER_REPLAY_INITIATED',
+         startLedger,
+         endLedger: endLedger || null,
+         dryRun,
+         initiatedBy: adminId,
+         lock: {
+            name: lockName,
+            expiresAt: lock.expiresAt,
+         },
+         timestamp: new Date().toISOString(),
+      };
 
-    if (!dryRun) {
-      await emitAuditEvent({
-        actor: adminId || 'unknown',
-        action: 'replay_indexer_events',
-        target: 'IndexerQueue',
-        targetId: String(startLedger),
-        metadata: { startLedger, dryRun },
-      });
-    }
+      logger.info(
+         {
+            lockName,
+            lockOwner,
+            lockExpiresAt: lock.expiresAt,
+            startLedger,
+            endLedger: endLedger || null,
+         },
+         'Acquired background job lock for indexer replay'
+      );
 
-    sendSuccess(res, replayInitiated);
-  } catch (error) {
-    next(error);
-  }
+      if (!dryRun) {
+         await emitAuditEvent({
+            actor: adminId || 'unknown',
+            action: 'replay_indexer_events',
+            target: 'IndexerQueue',
+            targetId: String(startLedger),
+            metadata: { startLedger, endLedger: endLedger || null, dryRun },
+         });
+      }
+
+      sendSuccess(res, replayInitiated);
+   } catch (error) {
+      next(error);
+   }
 };

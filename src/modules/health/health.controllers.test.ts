@@ -7,6 +7,7 @@ jest.mock('../../config', () => ({
       MODE: 'test',
       PORT: 3000,
       INDEXER_HEARTBEAT_STALE_THRESHOLD_MS: 300000,
+      DB_QUERY_TIMEOUT_MS: 5000,
    },
    appConfig: {
       allowedOrigins: [],
@@ -24,6 +25,7 @@ jest.mock('../../utils/indexer-cursor-staleness.utils', () => ({
 }));
 
 import {
+   healthCheck,
    indexerHeartbeatCheck,
    recordIndexerHeartbeat,
    readinessCheck,
@@ -31,6 +33,7 @@ import {
 import { indexerHeartbeat } from '../../utils/heartbeat.service';
 import { checkIndexerCursorStalenessFromStore } from '../../utils/indexer-cursor-staleness.utils';
 import { prisma } from '../../utils/prisma.utils';
+import { PUBLIC_ENDPOINT_CACHE_SECONDS } from '../../constants/public-endpoint-cache.constants';
 
 const checkCursorStalenessMock =
    checkIndexerCursorStalenessFromStore as jest.MockedFunction<
@@ -58,6 +61,8 @@ function mockResponse(): Response & { statusCode: number; body: any } {
       res.body = payload;
       return res;
    };
+
+   res.setHeader = () => res;
 
    return res;
 }
@@ -165,7 +170,9 @@ describe('Indexer Heartbeat Controllers', () => {
 
          await recordIndexerHeartbeat(req, res);
 
-         expect(checkCursorStalenessMock).toHaveBeenCalledWith({ job: 'indexer' });
+         expect(checkCursorStalenessMock).toHaveBeenCalledWith({
+            job: 'indexer',
+         });
       });
    });
 });
@@ -205,10 +212,34 @@ describe('Readiness Controller', () => {
 
          await readinessCheck({} as Request, res);
 
-         const dbCheck = res.body.checks.find((c: any) => c.name === 'database');
+         const dbCheck = res.body.checks.find(
+            (c: any) => c.name === 'database'
+         );
          expect(dbCheck.status).toBe('ok');
          expect(typeof dbCheck.latencyMs).toBe('number');
          expect(typeof res.body.latencyMs).toBe('number');
+      });
+   });
+
+   describe('healthCheck()', () => {
+      beforeEach(() => {
+         queryRawMock.mockReset();
+      });
+
+      it('includes sanitized dependency timeout metadata in detailed health output', async () => {
+         queryRawMock.mockResolvedValue([{ '?column?': 1 }]);
+         const res = mockResponse();
+
+         await healthCheck(mockRequest(), res);
+
+         expect(res.statusCode).toBe(200);
+         expect(res.body).toHaveProperty('timeouts');
+         expect(res.body.timeouts).toEqual({
+            database_timeout_ms: 5000,
+            cache_timeout_ms: PUBLIC_ENDPOINT_CACHE_SECONDS.short * 1000,
+         });
+         expect(typeof res.body.timeouts.database_timeout_ms).toBe('number');
+         expect(typeof res.body.timeouts.cache_timeout_ms).toBe('number');
       });
    });
 });

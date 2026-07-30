@@ -20,11 +20,16 @@ function makeRes(): any {
    const res: any = {};
    res.status = jest.fn().mockReturnValue(res);
    res.json = jest.fn().mockReturnValue(res);
-   res.setHeader = jest.fn().mockImplementation((name: string, value: string) => {
+   res.setHeader = jest
+      .fn()
+      .mockImplementation((name: string, value: string) => {
+         headers[name.toLowerCase()] = value;
+         return res;
+      });
+   res.set = jest.fn().mockImplementation((name: string, value: string) => {
       headers[name.toLowerCase()] = value;
       return res;
    });
-   res.set = jest.fn().mockReturnValue(res);
    res._headers = headers;
    return res;
 }
@@ -36,8 +41,13 @@ const FIXTURE_PROFILE = {
    displayName: 'Test Creator',
    bio: 'A bio',
    avatarUrl: 'https://example.com/avatar.png',
+   createdAt: '2024-01-01T00:00:00.000Z',
+   updatedAt: '2024-01-02T00:00:00.000Z',
    perks: [],
    links: [],
+   currentPrice: null,
+   price24hAgo: null,
+   priceChange24h: null,
    metadata: { source: 'database' as const, isProfileComplete: true },
 };
 
@@ -49,7 +59,9 @@ describe('GET /api/v1/creators/:creatorId/profile — cache headers', () => {
    });
 
    it('sets Cache-Control header on a successful profile response', async () => {
-      jest.spyOn(creatorProfileService, 'getCreatorProfile').mockResolvedValue(FIXTURE_PROFILE);
+      jest
+         .spyOn(creatorProfileService, 'getCreatorProfile')
+         .mockResolvedValue(FIXTURE_PROFILE);
 
       // The cacheControl middleware runs before the handler in the real route.
       // Here we simulate it by calling setHeader directly, mirroring what the
@@ -78,21 +90,25 @@ describe('GET /api/v1/creators/:creatorId/profile — cache headers', () => {
    });
 
    it('Cache-Control max-age is a positive integer', () => {
-      const match = CREATOR_PUBLIC_ROUTE_CACHE_CONTROL_HEADER.publicRead.match(
-         /max-age=(\d+)/
-      );
+      const match =
+         CREATOR_PUBLIC_ROUTE_CACHE_CONTROL_HEADER.publicRead.match(
+            /max-age=(\d+)/
+         );
       expect(match).not.toBeNull();
       const maxAge = parseInt(match![1], 10);
       expect(maxAge).toBeGreaterThan(0);
    });
 
    it('handler does not override a Cache-Control header set by upstream middleware', async () => {
-      jest.spyOn(creatorProfileService, 'getCreatorProfile').mockResolvedValue(FIXTURE_PROFILE);
+      jest
+         .spyOn(creatorProfileService, 'getCreatorProfile')
+         .mockResolvedValue(FIXTURE_PROFILE);
 
       const req = makeReq({ creatorId: 'creator-abc' });
       const res = makeRes();
 
-      const upstreamValue = CREATOR_PUBLIC_ROUTE_CACHE_CONTROL_HEADER.publicRead;
+      const upstreamValue =
+         CREATOR_PUBLIC_ROUTE_CACHE_CONTROL_HEADER.publicRead;
       res.setHeader('Cache-Control', upstreamValue);
 
       await getCreatorProfileHandler(req, res);
@@ -105,16 +121,30 @@ describe('GET /api/v1/creators/:creatorId/profile — cache headers', () => {
       expect(cacheControlCalls[0][1]).toBe(upstreamValue);
    });
 
-   it('returns HTTP 200 alongside the cache header for a found profile', async () => {
-      jest.spyOn(creatorProfileService, 'getCreatorProfile').mockResolvedValue(FIXTURE_PROFILE);
+   it('returns HTTP 200 alongside the cache header and response timestamp for a found profile', async () => {
+      jest
+         .spyOn(creatorProfileService, 'getCreatorProfile')
+         .mockResolvedValue(FIXTURE_PROFILE);
 
       const req = makeReq({ creatorId: 'creator-abc' });
       const res = makeRes();
-      res.setHeader('Cache-Control', CREATOR_PUBLIC_ROUTE_CACHE_CONTROL_HEADER.publicRead);
+      res.setHeader(
+         'Cache-Control',
+         CREATOR_PUBLIC_ROUTE_CACHE_CONTROL_HEADER.publicRead
+      );
 
       await getCreatorProfileHandler(req, res);
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res._headers['cache-control']).toBeDefined();
+      expect(res._headers['x-response-timestamp']).toMatch(
+         /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+      );
+      expect(res.json).toHaveBeenCalledWith(
+         expect.objectContaining({
+            success: true,
+            data: FIXTURE_PROFILE,
+         })
+      );
    });
 });

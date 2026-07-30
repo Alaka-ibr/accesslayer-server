@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../utils/prisma.utils';
 import { CreatorProfile } from '../../types/profile.types';
 import { CreatorListQueryType } from './creators.schemas';
@@ -9,9 +10,13 @@ import {
 import { buildOffsetPaginationMeta } from '../../utils/pagination.utils';
 import { logger } from '../../utils/logger.utils';
 import { envConfig } from '../../config';
-import { buildCreatorFeedWhere } from './creator-feed-filter-combinator.utils';
+import {
+   buildCreatorFeedWhere,
+   CreatorFeedWhere,
+} from './creator-feed-filter-combinator.utils';
 import { CREATOR_LIST_DEFAULT_SELECT } from '../../constants/creator-list-projection.constants';
 import { getCachedCreatorList, setCachedCreatorList } from './creators.cache';
+import { captureQueryPlan } from '../../utils/query-plan.utils';
 
 /**
  * Fetch paginated list of creators from the database.
@@ -27,10 +32,21 @@ export async function fetchCreatorList(
       return [cached.creators, cached.total];
    }
 
-   const { limit, offset, sort, order, verified, search } = query;
+   const { limit, offset, sort, order, verified, search, minPrice, maxPrice } =
+      query;
 
-   const where = buildCreatorFeedWhere({ verified, search });
-   const orderBy = mapCreatorListSort(sort, order);
+   const where = buildCreatorFeedWhere({
+      verified,
+      search,
+      minPrice,
+      maxPrice,
+   });
+   const orderBy: Prisma.CreatorProfileOrderByWithRelationInput[] = [
+      mapCreatorListSort(sort, order),
+      // Apply a deterministic tie-breaker so pagination stays stable when
+      // multiple creators share the same primary sort value.
+      { id: 'asc' },
+   ];
 
    // Fetch creators and total count in parallel
    const start = Date.now();
@@ -46,7 +62,39 @@ export async function fetchCreatorList(
    ]);
 
    const durationMs = Date.now() - start;
+
+   // Emit a structured debug log after every creator list query (#550).
+   // Only include filter keys that were actually provided in the request;
+   // cursor is intentionally excluded from the log output.
+   const activeFilters: Record<string, unknown> = {};
+   if (verified !== undefined) activeFilters.verified = verified;
+   if (search !== undefined && search !== '') activeFilters.search = search;
+   if (minPrice !== undefined) activeFilters.minPrice = minPrice.toString();
+   if (maxPrice !== undefined) activeFilters.maxPrice = maxPrice.toString();
+
+   logger.debug(
+      {
+         result_count: creators.length,
+         filters: activeFilters,
+         sort,
+         query_duration_ms: durationMs,
+      },
+      'Creator list query resolved'
+   );
+
    if (durationMs > envConfig.CREATOR_LIST_SLOW_QUERY_THRESHOLD_MS) {
+      // In debug (development) mode, capture the query execution plan so
+      // missing indexes and inefficient joins are immediately visible in logs.
+      // The plan is never collected in production to avoid extra round-trips
+      // and log bloat.
+      const queryPlan =
+         envConfig.MODE === 'development'
+            ? await captureQueryPlan(
+                 buildCreatorFeedExplainSql(where),
+                 buildCreatorFeedExplainParams(where)
+              )
+            : null;
+
       logger.warn({
          msg: 'Slow creator list query',
          durationMs,
@@ -57,6 +105,7 @@ export async function fetchCreatorList(
          hasVerifiedFilter: verified !== undefined,
          limit,
          offset,
+         ...(queryPlan !== null && { queryPlan }),
       });
    }
 
@@ -89,4 +138,60 @@ export function createEmptyCreatorListResponse(
          total: 0,
       })
    );
+}
+
+// ── Query-plan helpers ────────────────────────────────────────────────────────
+
+/**
+ * Builds the raw SQL SELECT that mirrors the Prisma `findMany` for the creator
+ * feed.  The statement is used exclusively as the argument to EXPLAIN and is
+ * never executed directly.
+ *
+ * @param where - The Prisma where clause produced by `buildCreatorFeedWhere`.
+ * @returns A parameterised SQL string (positional `$N` placeholders).
+ */
+export function buildCreatorFeedExplainSql(where: CreatorFeedWhere): string {
+   const conditions: string[] = [];
+   let paramIndex = 1;
+
+   if (where.isVerified !== undefined) {
+      conditions.push(`"isVerified" = $${paramIndex++}`);
+   }
+
+   if (where.OR && where.OR.length > 0) {
+      conditions.push(
+         `("handle" ILIKE $${paramIndex++} OR "displayName" ILIKE $${paramIndex++})`
+      );
+   }
+
+   const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+   return `SELECT * FROM "CreatorProfile" ${whereClause}`;
+}
+
+/**
+ * Builds the ordered list of parameter values that correspond to the
+ * positional placeholders produced by `buildCreatorFeedExplainSql`.
+ *
+ * @param where - The Prisma where clause produced by `buildCreatorFeedWhere`.
+ * @returns An array of values in the same order as the SQL placeholders.
+ */
+export function buildCreatorFeedExplainParams(
+   where: CreatorFeedWhere
+): unknown[] {
+   const params: unknown[] = [];
+
+   if (where.isVerified !== undefined) {
+      params.push(where.isVerified);
+   }
+
+   if (where.OR && where.OR.length > 0) {
+      // Both handle and displayName use the same search term.
+      const searchTerm = where.OR[0]?.handle?.contains ?? '';
+      params.push(`%${searchTerm}%`);
+      params.push(`%${searchTerm}%`);
+   }
+
+   return params;
 }

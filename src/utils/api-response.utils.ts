@@ -5,6 +5,7 @@ import { Response } from 'express';
 import { ZodIssue } from 'zod';
 import { ErrorCode, ErrorCodeType } from '../constants/error.constants';
 import { requestContextStorage } from './als.utils';
+import { serializeBigInt } from './bigint-serializer.utils';
 
 /**
  * Standard API error response shape.
@@ -128,7 +129,7 @@ export function sendSuccess<T>(
 ): void {
    const body: ApiSuccessResponse<T> = {
       success: true,
-      data,
+      data: serializeBigInt(data) as T,
       ...(message ? { message } : {}),
    };
    res.setHeader('Content-Type', 'application/json');
@@ -147,7 +148,7 @@ export function sendPaginatedSuccess<T>(
 ): void {
    const body: PaginatedResponse<T> = {
       success: true,
-      data,
+      data: serializeBigInt(data) as T[],
       meta,
       ...(message ? { message } : {}),
    };
@@ -185,6 +186,10 @@ export function sendValidationError(
 
 export function sendNotFound(res: Response, resource: string): void {
    sendError(res, 404, ErrorCode.NOT_FOUND, `${resource} not found`);
+}
+
+export function sendCreatorParamNotFound(res: Response): void {
+   sendNotFound(res, 'Creator');
 }
 
 export function sendUnauthorized(

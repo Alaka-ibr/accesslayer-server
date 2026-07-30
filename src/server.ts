@@ -14,6 +14,7 @@ import { describeDatabasePoolConfig } from './utils/db-pool-config.utils';
 import { stopOwnershipSnapshotCleanupJob } from './jobs/ownership-snapshot-cleanup.job';
 import { connectRedis, disconnectRedis } from './utils/redis.utils';
 import { broadcastServerClosing, closeAllConnections } from './utils/sse-fanout.utils';
+import { buildStartupConfigSummary } from './utils/config-summary.utils';
 
 async function startServer() {
    try {
@@ -44,6 +45,15 @@ async function startServer() {
       logger.info(
          describeDatabasePoolConfig(),
          'Database connection pool configured'
+      );
+
+      // Emit a structured summary of the loaded runtime config: environment
+      // context and key feature flags. Values flow through the masking helper,
+      // so no secrets or credentials are logged. See
+      // utils/config-summary.utils.ts for the curated field selection.
+      logger.info(
+         buildStartupConfigSummary(),
+         'Loaded runtime configuration summary'
       );
 
       // Verify migrations on startup

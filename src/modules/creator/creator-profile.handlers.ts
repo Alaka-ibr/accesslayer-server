@@ -6,6 +6,7 @@ import {
    zodIssuesToDetails,
    ErrorCode,
 } from '../../utils/api-response.utils';
+import { attachTimestampHeader } from '../../utils/timestamp-headers.utils';
 import { logger } from '../../utils/logger.utils';
 import {
    CreatorProfileParamsSchema,
@@ -36,6 +37,7 @@ export async function getCreatorProfileHandler(req: Request, res: Response) {
       }
 
       const profile = await getCreatorProfile(paramsResult.data.creatorId);
+      attachTimestampHeader(res);
       return sendSuccess(res, profile, 200, 'Creator profile retrieved');
    } catch (error) {
       logger.error(
@@ -76,6 +78,27 @@ export async function upsertCreatorProfileHandler(req: Request, res: Response) {
 
       const bodyResult = UpsertCreatorProfileBodySchema.safeParse(req.body);
       if (!bodyResult.success) {
+         // Log missing required fields with structured context
+         const missingFields = bodyResult.error.issues
+            .filter(
+               (issue: any) =>
+                  issue.code === 'invalid_type' &&
+                  issue.received === 'undefined'
+            )
+            .map((issue: any) => issue.path.join('.'));
+
+         if (missingFields.length > 0) {
+            logger.warn(
+               {
+                  type: 'creator_profile_validation_error',
+                  handler: 'upsertCreatorProfileHandler',
+                  missingFields,
+                  ...(req.requestId ? { requestId: req.requestId } : {}),
+               },
+               'Missing required fields in creator profile payload'
+            );
+         }
+
          return sendValidationError(
             res,
             'Invalid creator profile payload',
