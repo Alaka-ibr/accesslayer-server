@@ -76,6 +76,9 @@ export const httpListCreators: AsyncController = async (req, res, next) => {
             limit: validatedQuery.limit,
             offset: validatedQuery.offset,
             total,
+            ...(validatedQuery.search !== undefined && total === 0
+               ? { searchTerm: validatedQuery.search }
+               : {}),
          })
       );
 
@@ -380,7 +383,7 @@ export const httpGetTrendingCreators: AsyncController = async (
       );
 
       // Sort by volume descending
-      creatorsWithVolume.sort((a, b) => {
+      creatorsWithVolume.sort((a: { volume_24h: string }, b: { volume_24h: string }) => {
          const volA = BigInt(a.volume_24h);
          const volB = BigInt(b.volume_24h);
          if (volB > volA) return 1;
