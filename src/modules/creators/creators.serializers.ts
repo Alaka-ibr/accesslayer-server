@@ -161,6 +161,7 @@ export function serializeCreatorListOffsetMeta(
       offset: meta.offset,
       total: meta.total,
       hasMore: meta.hasMore,
+      ...(meta.searchTerm !== undefined ? { searchTerm: meta.searchTerm } : {}),
    };
 }
 
