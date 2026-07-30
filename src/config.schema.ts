@@ -86,6 +86,24 @@ export const envSchema = z
          .min(32, 'APP_SECRET should be at least 32 characters')
          .default('accesslayer_default_development_secret_key_32_bytes_long'),
 
+      REDIS_URL: z.string().default('redis://localhost:6379'),
+
+      JWT_SECRET: z
+         .string()
+         .min(32, 'JWT_SECRET should be at least 32 characters')
+         .default('accesslayer_jwt_development_secret_key_32_bytes_long'),
+      JWT_EXPIRES_IN: z.string().default('24h'),
+
+      SSE_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(15000),
+      SSE_QUEUE_CAPACITY: z.coerce.number().int().positive().default(500),
+      SSE_QUEUE_FULL_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+      SSE_THROTTLE_DURATION_MS: z.coerce.number().int().positive().default(60000),
+      SSE_MAX_CONNECTIONS_PER_WALLET: z.coerce.number().int().positive().default(2),
+      SSE_MAX_SUBSCRIPTIONS_PER_WALLET: z.coerce.number().int().positive().default(5),
+      SSE_SUBSCRIPTION_TTL_MS: z.coerce.number().int().positive().default(86400000),
+      SSE_REPLAY_MAX_EVENTS: z.coerce.number().int().positive().default(1000),
+      SSE_PRUNE_INTERVAL_MS: z.coerce.number().int().positive().default(300000),
+
       INDEXER_JITTER_FACTOR: z.coerce.number().min(0).max(1).default(0.1),
       BACKGROUND_JOB_LOCK_TTL_MS: z.coerce.number().int().positive().default(300000),
       SLOW_QUERY_THRESHOLD_MS: z.coerce.number().int().positive().default(500),
