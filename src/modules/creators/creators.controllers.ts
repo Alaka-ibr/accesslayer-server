@@ -70,7 +70,7 @@ export const httpListCreators: AsyncController = async (req, res, next) => {
       // Fetch creators and total count
       const [creators, total] = await fetchCreatorList(validatedQuery);
 
-      const response: CreatorListResponse = serializeCreatorListResponse(
+      const response: CreatorListResponse = await serializeCreatorListResponse(
          creators,
          buildOffsetPaginationMeta({
             limit: validatedQuery.limit,

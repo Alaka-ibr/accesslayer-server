@@ -34,7 +34,11 @@ describe('getCreatorProfile', () => {
          avatarUrl: null,
          createdAt: null,
          updatedAt: null,
+         perks: [],
          links: [],
+         currentPrice: null,
+         price24hAgo: null,
+         priceChange24h: null,
          metadata: {
             source: 'placeholder',
             isProfileComplete: false,

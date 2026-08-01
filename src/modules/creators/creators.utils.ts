@@ -127,10 +127,10 @@ export async function fetchCreatorList(
  * const emptyResponse = createEmptyCreatorListResponse(validatedQuery);
  * // Returns: { items: [], meta: { limit, offset, total: 0, hasMore: false } }
  */
-export function createEmptyCreatorListResponse(
+export async function createEmptyCreatorListResponse(
    query: CreatorListQueryType
-): CreatorListResponse {
-   return serializeCreatorListResponse(
+): Promise<CreatorListResponse> {
+   return await serializeCreatorListResponse(
       [],
       buildOffsetPaginationMeta({
          limit: query.limit,

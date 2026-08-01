@@ -9,6 +9,7 @@ import { formatIsoTimestamp } from '../../utils/iso-timestamp.utils';
 import { compute24hPriceChange } from '../../utils/price.utils';
 import { normalizeSocialLinkUrl } from './creator-social-link-url.utils';
 import { truncateString } from '../../utils/string-truncate.utils';
+import { computePriceChange } from '../../utils/price-change.utils';
 
 const CREATOR_PROFILE_LIMITS = {
    displayName: 80,
@@ -121,8 +122,17 @@ export async function getCreatorProfile(
       lastTradeAt: Date | null;
    } | null;
 
+   const ONE_DAY_MS = 86_400_000;
    let priceChange24h: number | null = null;
-   if (snapshot) {
+
+   const computedChange = await computePriceChange(
+      profile.id,
+      ONE_DAY_MS,
+      prisma
+   );
+   if (computedChange !== null) {
+      priceChange24h = computedChange;
+   } else if (snapshot) {
       priceChange24h = compute24hPriceChange(
          snapshot.currentPrice,
          snapshot.price24hAgo

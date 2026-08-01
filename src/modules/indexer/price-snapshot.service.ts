@@ -44,6 +44,13 @@ export async function upsertPriceSnapshot(
                lastTradeAt: tradeAt,
             },
          });
+         await prisma.creatorPriceHistory.create({
+            data: {
+               creatorId,
+               price,
+               recordedAt: tradeAt,
+            },
+         });
          logger.debug(
             {
                creator_id: creatorId,
@@ -84,6 +91,13 @@ export async function upsertPriceSnapshot(
                ? existing.currentPrice
                : existing.price24hAgo,
             lastTradeAt: tradeAt,
+         },
+      });
+      await prisma.creatorPriceHistory.create({
+         data: {
+            creatorId,
+            price,
+            recordedAt: tradeAt,
          },
       });
       logger.debug(
