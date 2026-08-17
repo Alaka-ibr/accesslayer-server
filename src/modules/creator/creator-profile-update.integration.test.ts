@@ -45,25 +45,23 @@ jest.mock('../../utils/wallet-ownership.utils', () => ({
 }));
 
 jest.mock('./creator-profile.service', () => ({
-   getCreatorProfile: jest.fn(
-      async (creatorId: string) => ({
-         creatorId,
-         displayName: UPDATED_DISPLAY_NAME,
-         bio: UPDATED_BIO,
-         avatarUrl: null,
-         createdAt: null,
-         updatedAt: null,
-         perks: [],
-         links: [],
-         currentPrice: null,
-         price24hAgo: null,
-         priceChange24h: null,
-         metadata: {
-            source: 'database',
-            isProfileComplete: true,
-         },
-      })
-   ),
+   getCreatorProfile: jest.fn(async (creatorId: string) => ({
+      creatorId,
+      displayName: UPDATED_DISPLAY_NAME,
+      bio: UPDATED_BIO,
+      avatarUrl: null,
+      createdAt: null,
+      updatedAt: null,
+      perks: [],
+      links: [],
+      currentPrice: null,
+      price24hAgo: null,
+      priceChange24h: null,
+      metadata: {
+         source: 'database',
+         isProfileComplete: true,
+      },
+   })),
    upsertCreatorProfile: jest.fn(
       async (creatorId: string, payload: unknown) => ({
          creatorId,
@@ -93,7 +91,8 @@ const mockedCheck =
 const TEST_CREATOR_ID = 'creator-profile-update-id';
 const UPDATED_DISPLAY_NAME = 'Updated Display Name';
 const UPDATED_BIO = 'Updated bio content';
-const OWNER_WALLET_ADDRESS = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const OWNER_WALLET_ADDRESS =
+   'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 
 describe('PUT /api/v1/creators/:creatorId/profile — display name and bio persistence', () => {
    beforeEach(() => {
@@ -172,12 +171,12 @@ describe('PUT /api/v1/creators/:creatorId/profile — display name and bio persi
       );
    });
 
-   it('returns 400 when display name is too short', async () => {
+   it('returns 400 when display name is too long', async () => {
       const res = await supertest(app)
          .put(`/api/v1/creators/${TEST_CREATOR_ID}/profile`)
          .set('x-wallet-address', OWNER_WALLET_ADDRESS)
          .send({
-            displayName: 'A',
+            displayName: 'a'.repeat(51),
             bio: 'Some bio',
          });
 

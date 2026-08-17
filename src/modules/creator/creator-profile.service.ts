@@ -10,9 +10,10 @@ import { compute24hPriceChange } from '../../utils/price.utils';
 import { normalizeSocialLinkUrl } from './creator-social-link-url.utils';
 import { truncateString } from '../../utils/string-truncate.utils';
 import { computePriceChange } from '../../utils/price-change.utils';
+import { sanitizeDisplayName } from './creator-display-name-sanitize.utils';
 
 const CREATOR_PROFILE_LIMITS = {
-   displayName: 80,
+   displayName: 50,
    bio: 1000,
    linkLabel: 40,
    perkTitle: 100,
@@ -175,7 +176,7 @@ export async function upsertCreatorProfile(
       ...payload,
       displayName: payload.displayName
          ? truncateString(
-              payload.displayName,
+              sanitizeDisplayName(payload.displayName),
               CREATOR_PROFILE_LIMITS.displayName
            )
          : payload.displayName,
