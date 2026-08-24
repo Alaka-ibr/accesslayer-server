@@ -14,6 +14,7 @@ import webhookRouter from './webhooks/webhook.router';
 import walletsRouter from './wallets/wallets.routes';
 import alertsRouter from './alerts/alert.router';
 import tradingRouter from './trading/multi-buy.routes';
+import sequencerRouter from './admin/sequencer.routes';
 import { BASE as CREATORS_BASE } from '../constants/creator.constants';
 import { routeBodySizeLimit } from '../middlewares/body-size-limit.middleware';
 
@@ -38,5 +39,6 @@ router.use(CREATORS_BASE, routeBodySizeLimit('creators'), webhookRouter);
 router.use('/wallets', routeBodySizeLimit('default'), walletsRouter);
 router.use('/alerts', routeBodySizeLimit('default'), alertsRouter);
 router.use('/trading', routeBodySizeLimit('default'), tradingRouter);
+router.use('/internal', routeBodySizeLimit('default'), sequencerRouter);
 
 export default router;
