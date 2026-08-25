@@ -5,6 +5,10 @@ import {
    getCreatorProfileHandler,
    upsertCreatorProfileHandler,
 } from './creator-profile.handlers';
+import {
+   httpFollowCreator,
+   httpUnfollowCreator,
+} from './follow.handlers';
 import { ROOT as CREATORS_ROOT } from '../../constants/creator.constants';
 import { cacheControl } from '../../middlewares/cache-control.middleware';
 import { CREATOR_PUBLIC_ROUTE_CACHE_PRESETS } from '../../constants/creator-public-cache.constants';
@@ -73,5 +77,29 @@ router.put(
 router.all('/:creatorId/profile', (_req, res) => {
    res.set('Allow', 'GET, PUT').sendStatus(405);
 });
+
+/**
+ * @route POST /api/v1/creators/:creatorId/follow
+ * @desc Follow a creator (idempotent)
+ * @access Requires Stellar signature verification
+ */
+router.post(
+   '/:creatorId/follow',
+   validateCreatorParam('creatorId'),
+   requireStellarSignature(),
+   httpFollowCreator
+);
+
+/**
+ * @route DELETE /api/v1/creators/:creatorId/follow
+ * @desc Unfollow a creator (idempotent)
+ * @access Requires Stellar signature verification
+ */
+router.delete(
+   '/:creatorId/follow',
+   validateCreatorParam('creatorId'),
+   requireStellarSignature(),
+   httpUnfollowCreator
+);
 
 export default router;

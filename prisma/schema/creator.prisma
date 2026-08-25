@@ -1,22 +1,24 @@
 // prisma/schema/creator.prisma
 
 model CreatorProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  handle      String   @unique
-  displayName String
-  bio         String?
-  avatarUrl   String?
-  perkSummary String?
-  isVerified  Boolean  @default(false)
-  perks       Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  handle          String   @unique
+  displayName     String
+  bio             String?
+  avatarUrl       String?
+  perkSummary     String?
+  isVerified      Boolean  @default(false)
+  perks           Json?
+  followersCount  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  priceSnapshot CreatorPriceSnapshot?
-  priceHistory  CreatorPriceHistory[]
-  posts         CreatorPost[]
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priceSnapshot  CreatorPriceSnapshot?
+  priceHistory   CreatorPriceHistory[]
+  posts          CreatorPost[]
+  followers      Follow[]
 }
 
 model CreatorPost {
