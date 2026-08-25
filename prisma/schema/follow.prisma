@@ -1,0 +1,16 @@
+// prisma/schema/follow.prisma
+//
+// Tracks which wallets follow which creators.
+// A "follow" is a lightweight social-graph link distinct from key ownership.
+
+model WalletCreatorFollow {
+  id            String   @id @default(cuid())
+  walletAddress String
+  creatorId     String
+  createdAt     DateTime @default(now())
+
+  @@unique([walletAddress, creatorId])
+  @@index([walletAddress])
+  @@index([creatorId])
+  @@map("wallet_creator_follows")
+}
