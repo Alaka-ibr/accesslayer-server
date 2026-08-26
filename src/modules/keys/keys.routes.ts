@@ -18,6 +18,7 @@ import {
 import { KEY_SEARCH_MIN_QUERY_LENGTH } from '../../constants/notifications.constants';
 import { getKeyProposals, KeyNotFoundError as ProposalKeyNotFoundError } from './key-proposals.service';
 import { getKeySupply, KeyNotFoundError as SupplyKeyNotFoundError } from './key-supply.service';
+import { transferKeys } from './key-transfer.service';
 
 const priceHistoryQuerySchema = z.object({
    from: z.string().datetime(),
@@ -171,6 +172,47 @@ router.get('/:keyId/price-history', async (req, res, next) => {
    } catch (error) {
       next(error);
    }
+});
+
+/**
+ * POST /api/v1/keys/:keyId/transfer
+ * Transfer keys between wallets with balance validation.
+ */
+const transferBodySchema = z.object({
+  fromAddress: z.string().min(1),
+  toAddress: z.string().min(1),
+  quantity: z.number().int().positive(),
+});
+
+router.post('/:keyId/transfer', async (req, res, next) => {
+  const parsed = transferBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendValidationError(
+      res,
+      'Invalid transfer body',
+      zodIssuesToDetails(parsed.error.issues)
+    );
+    return;
+  }
+  try {
+    const result = await transferKeys(
+      req.params.keyId,
+      parsed.data.fromAddress,
+      parsed.data.toAddress,
+      parsed.data.quantity
+    );
+    sendSuccess(res, result);
+  } catch (error) {
+    if (error instanceof KeyNotFoundError) {
+      sendNotFound(res, 'Key');
+      return;
+    }
+    if (error instanceof Error) {
+      sendError(res, 400, ErrorCode.BAD_REQUEST, error.message);
+      return;
+    }
+    next(error);
+  }
 });
 
 export default router;

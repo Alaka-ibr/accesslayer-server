@@ -1,0 +1,15 @@
+// prisma/schema/dividend.prisma
+
+model Dividend {
+  id              String   @id @default(cuid())
+  investorAddress String
+  creatorId       String
+  amount          Decimal
+  distributedAt   DateTime
+  transactionHash String?
+  createdAt       DateTime @default(now())
+
+  @@index([investorAddress])
+  @@index([creatorId])
+  @@index([investorAddress, creatorId])
+}

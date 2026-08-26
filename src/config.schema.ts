@@ -183,6 +183,14 @@ export const envSchema = z
          .positive()
          .default(5),
 
+      // Governance proposal sync job
+      GOVERNANCE_SYNC_ENABLED: booleanCoerce.default(false),
+      GOVERNANCE_SYNC_INTERVAL_MINUTES: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(5),
+
       // Request body size limits (see docs/body-size-limits.md).
       // Accepts any size string understood by the `bytes` package used
       // internally by body-parser (e.g. '100kb', '1mb', '10mb').
