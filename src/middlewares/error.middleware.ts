@@ -9,7 +9,10 @@ import { RpcTimeoutError } from '../utils/rpc-timeout.utils';
 import { mapUnknownRouteError } from '../utils/route-error.utils';
 import { buildErrorContext } from '../utils/error-context.utils';
 import { sanitizeLogFieldValue } from '../utils/log-field-sanitizer.utils';
-import { buildErrorResponse, zodIssuesToDetails } from '../utils/api-response.utils';
+import {
+   buildErrorResponse,
+   zodIssuesToDetails,
+} from '../utils/api-response.utils';
 
 export class ApiError extends Error {
    statusCode: number;

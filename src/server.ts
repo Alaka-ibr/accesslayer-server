@@ -12,7 +12,9 @@ import {
 import { checkOptionalDependencies } from './utils/startup.utils';
 import { describeDatabasePoolConfig } from './utils/db-pool-config.utils';
 import { stopOwnershipSnapshotCleanupJob } from './jobs/ownership-snapshot-cleanup.job';
-import { maskSensitiveConfigValues } from './utils/config-mask.utils';
+import { connectRedis, disconnectRedis } from './utils/redis.utils';
+import { broadcastServerClosing, closeAllConnections } from './utils/sse-fanout.utils';
+import { buildStartupConfigSummary } from './utils/config-summary.utils';
 
 async function startServer() {
    try {
@@ -35,6 +37,9 @@ async function startServer() {
       await prisma.$connect();
       logger.info('Connected to database');
 
+      await connectRedis();
+      logger.info('Connected to Redis');
+
       // Surface connection-pool settings (no credentials) so connection
       // exhaustion is diagnosable. Logged before the server accepts requests.
       logger.info(
@@ -42,12 +47,13 @@ async function startServer() {
          'Database connection pool configured'
       );
 
-      // Log startup config summary with sensitive values masked.
-      // See `maskSensitiveConfigValues` in utils/config-mask.utils.ts for
-      // the list of patterns considered sensitive.
+      // Emit a structured summary of the loaded runtime config: environment
+      // context and key feature flags. Values flow through the masking helper,
+      // so no secrets or credentials are logged. See
+      // utils/config-summary.utils.ts for the curated field selection.
       logger.info(
-         maskSensitiveConfigValues(),
-         'Startup configuration summary'
+         buildStartupConfigSummary(),
+         'Loaded runtime configuration summary'
       );
 
       // Verify migrations on startup
@@ -64,6 +70,7 @@ async function startServer() {
    } catch (error) {
       console.error('Failed to start server:', error);
       await prisma.$disconnect();
+      await disconnectRedis().catch(() => {});
       process.exit(1);
    }
 }
@@ -81,9 +88,17 @@ process.on('unhandledRejection', (reason, promise) => {
 
 function createGracefulShutdownHandler(server: ReturnType<typeof app.listen>) {
    return async () => {
+      logger.info('Shutting down SSE connections');
+      broadcastServerClosing();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      closeAllConnections();
+
       stopOwnershipSnapshotCleanupJob();
       await prisma.$disconnect();
-      console.log('💾 Database connection closed');
+      logger.info('Database connection closed');
+
+      await disconnectRedis().catch(() => {});
+      logger.info('Redis connection closed');
 
       const DRAIN_WINDOW_MS = 5000;
       const SHUTDOWN_TIMEOUT_MS = 30000;
@@ -93,20 +108,23 @@ function createGracefulShutdownHandler(server: ReturnType<typeof app.listen>) {
       });
 
       const shutdownTimer = setTimeout(() => {
-         console.error('❌ Shutdown timeout reached, forcing exit');
+         logger.error('Shutdown timeout reached, forcing exit');
          process.exit(1);
       }, SHUTDOWN_TIMEOUT_MS);
 
       server.close(async () => {
          clearTimeout(shutdownTimer);
-         console.log('✅ HTTP server closed, draining requests');
+         logger.info('HTTP server closed, draining requests');
 
          await new Promise(resolve => setTimeout(resolve, DRAIN_WINDOW_MS));
 
          await prisma.$disconnect();
-         console.log('💾 Database connection closed');
+         logger.info('Database connection closed');
 
-         console.log('👋 Shutdown complete');
+         await disconnectRedis().catch(() => {});
+         logger.info('Redis connection closed');
+
+         logger.info('Shutdown complete');
          process.exit(0);
       });
    };

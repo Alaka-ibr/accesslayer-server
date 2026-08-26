@@ -1,8 +1,10 @@
 import { RequestHandler } from 'express';
 
-export type CreatorReadEndpoint = 'list' | 'detail';
+export type CreatorReadEndpoint = 'list' | 'detail' | 'holders';
 
-const DURATION_BUCKETS_MS = [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000] as const;
+const DURATION_BUCKETS_MS = [
+   5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000,
+] as const;
 
 export interface CreatorReadHistogramBucket {
    leMs: number | null;
@@ -64,9 +66,12 @@ const createEndpointState = (): EndpointState => ({
 const registry: Record<CreatorReadEndpoint, EndpointState> = {
    list: createEndpointState(),
    detail: createEndpointState(),
+   holders: createEndpointState(),
 };
 
-function classifyStatus(statusCode: number): 'success' | 'clientErrors' | 'serverErrors' {
+function classifyStatus(
+   statusCode: number
+): 'success' | 'clientErrors' | 'serverErrors' {
    if (statusCode >= 500) {
       return 'serverErrors';
    }
@@ -79,7 +84,9 @@ function classifyStatus(statusCode: number): 'success' | 'clientErrors' | 'serve
 }
 
 function getHistogramBucketIndex(durationMs: number): number {
-   const bucketIndex = DURATION_BUCKETS_MS.findIndex(limit => durationMs <= limit);
+   const bucketIndex = DURATION_BUCKETS_MS.findIndex(
+      limit => durationMs <= limit
+   );
    return bucketIndex === -1 ? DURATION_BUCKETS_MS.length : bucketIndex;
 }
 
@@ -97,7 +104,11 @@ export function recordCreatorReadMetric(
    entry.histogram.sumMs += durationMs;
 
    const bucketIndex = getHistogramBucketIndex(durationMs);
-   for (let index = bucketIndex; index < entry.histogram.buckets.length; index += 1) {
+   for (
+      let index = bucketIndex;
+      index < entry.histogram.buckets.length;
+      index += 1
+   ) {
       entry.histogram.buckets[index].count += 1;
    }
 }
@@ -135,13 +146,26 @@ function snapshotEndpoint(entry: EndpointState): CreatorReadEndpointSnapshot {
 export function getCreatorReadMetrics(): CreatorReadMetricsSnapshot {
    return {
       counters: {
-         totalRequests: registry.list.requests + registry.detail.requests,
-         totalSuccess: registry.list.success + registry.detail.success,
-         totalClientErrors: registry.list.clientErrors + registry.detail.clientErrors,
-         totalServerErrors: registry.list.serverErrors + registry.detail.serverErrors,
+         totalRequests:
+            registry.list.requests +
+            registry.detail.requests +
+            registry.holders.requests,
+         totalSuccess:
+            registry.list.success +
+            registry.detail.success +
+            registry.holders.success,
+         totalClientErrors:
+            registry.list.clientErrors +
+            registry.detail.clientErrors +
+            registry.holders.clientErrors,
+         totalServerErrors:
+            registry.list.serverErrors +
+            registry.detail.serverErrors +
+            registry.holders.serverErrors,
          byEndpoint: {
             list: snapshotEndpoint(registry.list),
             detail: snapshotEndpoint(registry.detail),
+            holders: snapshotEndpoint(registry.holders),
          },
       },
    };
@@ -150,4 +174,5 @@ export function getCreatorReadMetrics(): CreatorReadMetricsSnapshot {
 export function resetCreatorReadMetrics(): void {
    registry.list = createEndpointState();
    registry.detail = createEndpointState();
+   registry.holders = createEndpointState();
 }
