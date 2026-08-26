@@ -167,6 +167,7 @@ export const envSchema = z
          )
          .default('https://soroban-testnet.stellar.org'),
       STELLAR_AUTH_SECRET: optionalNonEmptyString,
+      HORIZON_WEBHOOK_SECRET: optionalNonEmptyString,
 
       // Ownership snapshot cleanup job
       OWNERSHIP_SNAPSHOT_TABLE_NAME: z

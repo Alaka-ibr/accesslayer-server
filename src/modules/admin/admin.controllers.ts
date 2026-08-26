@@ -202,3 +202,37 @@ export const httpReplayIndexerEvents: AsyncController = async (
       next(error);
    }
 };
+
+export const httpSetKeyTradingPaused = async (
+   req: AdminRequest,
+   res: Response,
+   next: (error: unknown) => void
+): Promise<void> => {
+   try {
+      const creatorId = String(req.params.keyId);
+      const tradingPaused = req.path.endsWith('/pause');
+      const creator = await prisma.creatorProfile.findUnique({
+         where: { id: creatorId },
+         select: { id: true, tradingPaused: true },
+      });
+      if (!creator) {
+         sendCreatorParamNotFound(res);
+         return;
+      }
+      const updated = await prisma.creatorProfile.update({
+         where: { id: creatorId },
+         data: { tradingPaused },
+      });
+      if (creator.tradingPaused !== tradingPaused) {
+         await emitAuditEvent({
+            actor: req.adminId!,
+            action: tradingPaused ? 'key_trading_paused' : 'key_trading_resumed',
+            target: 'CreatorKey',
+            targetId: creatorId,
+         });
+      }
+      sendSuccess(res, updated);
+   } catch (error) {
+      next(error);
+   }
+};

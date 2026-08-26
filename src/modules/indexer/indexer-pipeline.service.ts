@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger.utils';
 import { processIndexerChainEvents, IndexerChainEvent } from '../../utils/indexer-event-processor.utils';
 import { dedupeChainEvents } from '../../utils/indexer-dedupe.utils';
 import { logSellTransactionConfirmed } from '../../utils/sell-transaction-logger.utils';
+import { persistCirculatingSupply } from './persist-circulating-supply.service';
 
 /**
  * Processes a batch of on-chain trade events (KEY_BOUGHT or KEY_SOLD).
@@ -69,6 +70,8 @@ export async function processTradeEvents(events: IndexerChainEvent[]): Promise<v
          tradeAt: new Date(tradeAt),
          ledger: Number(ledger),
       });
+
+      await persistCirculatingSupply(creatorId);
 
       // 4. Emit a structured log for confirmed sells, mirroring buy-side logging.
       if (event.eventType === 'KEY_SOLD') {
