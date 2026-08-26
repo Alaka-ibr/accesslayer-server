@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { sendNotFound, sendSuccess } from '../../utils/api-response.utils';
 import {
    httpListCreators,
    httpGetCreator,
@@ -27,6 +28,8 @@ import {
    httpListPosts,
    postSchema,
 } from '../creator/post.controller';
+import { requireKeyCreator } from '../../middlewares/jwt-auth.middleware';
+import { getCreatorRevenue, KeyNotFoundError as RevenueKeyNotFoundError } from '../creator/creator-revenue.service';
 
 const creatorsRouter = Router();
 
@@ -183,6 +186,32 @@ creatorsRouter.get(
 );
 // 405 handler for /:id
 creatorsRouter.all('/:id', (_req, res) => {
+   res.set('Allow', 'GET').sendStatus(405);
+});
+
+/**
+ * GET /api/v1/creators/:keyId/revenue
+ *
+ * Creator revenue summary: total royalties earned and trade count.
+ * Requires JWT matching the key creator.
+ */
+creatorsRouter.get(
+   '/:keyId/revenue',
+   requireKeyCreator('keyId'),
+   async (req, res, next) => {
+      try {
+         const keyId = Array.isArray(req.params.keyId) ? req.params.keyId[0] : req.params.keyId;
+         sendSuccess(res, await getCreatorRevenue(keyId));
+      } catch (error) {
+         if (error instanceof RevenueKeyNotFoundError) {
+            sendNotFound(res, 'Key');
+            return;
+         }
+         next(error);
+      }
+   }
+);
+creatorsRouter.all('/:keyId/revenue', (_req, res) => {
    res.set('Allow', 'GET').sendStatus(405);
 });
 
