@@ -85,6 +85,56 @@ router.get('/:keyId/fees', async (req, res, next) => {
    }
 });
 
+/**
+ * GET /api/v1/keys/:keyId/proposals?status=active|closed
+ * List governance proposals for a creator key.
+ */
+const proposalStatusSchema = z.object({
+   status: z.enum(['active', 'closed']).optional(),
+});
+
+router.get('/:keyId/proposals', async (req, res, next) => {
+   const parsed = proposalStatusSchema.safeParse(req.query);
+   if (!parsed.success) {
+      sendError(
+         res,
+         400,
+         ErrorCode.VALIDATION_ERROR,
+         'Invalid status filter',
+         zodIssuesToDetails(parsed.error.issues)
+      );
+      return;
+   }
+   try {
+      sendSuccess(
+         res,
+         await getKeyProposals(req.params.keyId, parsed.data.status)
+      );
+   } catch (error) {
+      if (error instanceof ProposalKeyNotFoundError) {
+         sendNotFound(res, 'Key');
+         return;
+      }
+      next(error);
+   }
+});
+
+/**
+ * GET /api/v1/keys/:keyId/supply
+ * Return supply cap, circulating supply, burned supply, and remaining mintable.
+ */
+router.get('/:keyId/supply', async (req, res, next) => {
+   try {
+      sendSuccess(res, await getKeySupply(req.params.keyId));
+   } catch (error) {
+      if (error instanceof SupplyKeyNotFoundError) {
+         sendNotFound(res, 'Key');
+         return;
+      }
+      next(error);
+   }
+});
+
 router.get('/:keyId/price-history', async (req, res, next) => {
    const parsed = priceHistoryQuerySchema.safeParse(req.query);
    if (!parsed.success) {
