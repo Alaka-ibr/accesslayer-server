@@ -32,8 +32,6 @@ export async function httpBuyCreatorKey(
       }
       throw error;
    }
-   const required =
-      parsed.data.key_cost_xlm * parsed.data.quantity + parsed.data.fee_xlm;
    const required = body.key_cost_xlm * body.quantity + body.fee_xlm;
    const balance = await buyGateway.getXlmBalance(walletAddress);
    if (balance < required) {
