@@ -8,6 +8,7 @@ import {
    httpGetCreatorAnalytics,
 } from './creators.controllers';
 import { httpGetCreatorHolders } from './creator-holders.controller';
+import { httpGetVolumeLeaderboard } from './creator-leaderboard-volume.controller';
 import { cacheControl } from '../../middlewares/cache-control.middleware';
 import { CREATOR_PUBLIC_ROUTE_CACHE_PRESETS } from '../../constants/creator-public-cache.constants';
 import { CREATOR_PUBLIC_ROUTE_NAMES } from '../../constants/creator-public-routes.constants';
@@ -18,8 +19,14 @@ import {
    requireCreatorProfileOwnership,
 } from '../../middlewares/wallet-ownership.middleware';
 import { requireStellarSignature } from '../../middlewares/stellar-signature.middleware';
-import { httpBuyCreatorKey } from '../creator/buy.controller';
-import { httpCreatePost, httpListPosts } from '../creator/post.controller';
+import { buyKeyRateLimit } from '../../middlewares/wallet-rate-limit.middleware';
+import { validateBody } from '../../middlewares/validate-body.middleware';
+import { httpBuyCreatorKey, buySchema } from '../creator/buy.controller';
+import {
+   httpCreatePost,
+   httpListPosts,
+   postSchema,
+} from '../creator/post.controller';
 
 const creatorsRouter = Router();
 
@@ -32,6 +39,8 @@ creatorsRouter.post(
    '/:id/buy',
    validateCreatorParam('id'),
    requireStellarSignature(),
+   buyKeyRateLimit,
+   validateBody(buySchema),
    httpBuyCreatorKey
 );
 creatorsRouter.get('/:id/posts', validateCreatorParam('id'), httpListPosts);
@@ -39,6 +48,7 @@ creatorsRouter.post(
    '/:id/posts',
    validateCreatorParam('id'),
    requireStellarSignature(),
+   validateBody(postSchema),
    httpCreatePost
 );
 
@@ -140,6 +150,20 @@ creatorsRouter.get(
    '/leaderboard',
    createCreatorReadMetricsMiddleware('list'),
    httpGetCreatorLeaderboard
+);
+
+/**
+ * GET /api/v1/creators/leaderboard/volume
+ *
+ * Top 20 creator keys ranked by total trading volume (buys + sells) over a
+ * rolling window (default 7 days, LEADERBOARD_VOLUME_WINDOW_DAYS). Cached in
+ * Redis for LEADERBOARD_VOLUME_CACHE_TTL_SECONDS (default 5 minutes) and
+ * invalidated whenever a new trade is indexed.
+ */
+creatorsRouter.get(
+   '/leaderboard/volume',
+   createCreatorReadMetricsMiddleware('list'),
+   httpGetVolumeLeaderboard
 );
 
 /**

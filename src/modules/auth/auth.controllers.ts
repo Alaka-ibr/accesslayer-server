@@ -1,4 +1,4 @@
-import { CreateUserWithPasswordSchema } from './auth.schemas';
+import { CreateUserWithPasswordType } from './auth.schemas';
 import { AsyncController } from '../../types/auth.types';
 import { checkUserEmailExists, createNewUserWithPassword } from './auth.utils';
 import { SendMailAsync } from '../../utils/mail.utils';
@@ -12,7 +12,9 @@ export const httpRegisterUserWithPassword: AsyncController = async (
    next
 ) => {
    try {
-      const validatedUserDetails = CreateUserWithPasswordSchema.parse(req.body);
+      // Body is already validated and stripped of unknown fields by the
+      // validateBody(CreateUserWithPasswordSchema) middleware on this route.
+      const validatedUserDetails = req.body as CreateUserWithPasswordType;
 
       const emailExists = await checkUserEmailExists(
          validatedUserDetails.email

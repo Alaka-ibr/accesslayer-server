@@ -169,6 +169,23 @@ export const envSchema = z
       STELLAR_AUTH_SECRET: optionalNonEmptyString,
       HORIZON_WEBHOOK_SECRET: optionalNonEmptyString,
 
+      // Shared secret that lets trusted internal services bypass per-wallet
+      // rate limits (e.g. the buy endpoint's sliding window limiter).
+      // Unset by default — no requests bypass rate limiting until configured.
+      INTERNAL_SERVICE_KEY: optionalNonEmptyString,
+
+      // Volume leaderboard (GET /api/v1/creators/leaderboard/volume, #785).
+      LEADERBOARD_VOLUME_WINDOW_DAYS: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(7),
+      LEADERBOARD_VOLUME_CACHE_TTL_SECONDS: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(300),
+
       // Ownership snapshot cleanup job
       OWNERSHIP_SNAPSHOT_TABLE_NAME: z
          .string()
