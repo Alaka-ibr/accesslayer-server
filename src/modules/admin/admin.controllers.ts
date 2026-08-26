@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { acquireJobLock } from '../../utils/background-job-lock.utils';
 import { logger } from '../../utils/logger.utils';
 import { ErrorCode } from '../../constants/error.constants';
+import { updateProtocolFeeBps } from '../keys/key-fees.service';
 
 const UpdateCreatorMetadataSchema = z.object({
    isVerified: z.boolean().optional(),
@@ -198,6 +199,40 @@ export const httpReplayIndexerEvents: AsyncController = async (
       }
 
       sendSuccess(res, replayInitiated);
+   } catch (error) {
+      next(error);
+   }
+};
+
+const UpdateProtocolFeeSchema = z.object({
+   protocolFeeBps: z.number().int().min(0).max(10000),
+});
+
+export const httpUpdateProtocolFee = async (
+   req: AdminRequest,
+   res: Response,
+   next: (error: unknown) => void
+): Promise<void> => {
+   try {
+      const parsed = UpdateProtocolFeeSchema.safeParse(req.body);
+      if (!parsed.success) {
+         sendValidationError(res, 'Invalid request body', [
+            { field: 'protocolFeeBps', message: 'Must be an integer 0–10000' },
+         ]);
+         return;
+      }
+
+      const updated = await updateProtocolFeeBps(parsed.data.protocolFeeBps);
+
+      await emitAuditEvent({
+         actor: req.adminId || 'unknown',
+         action: 'protocol_fee_updated',
+         target: 'ProtocolConfig',
+         targetId: 'default',
+         metadata: { protocolFeeBps: updated.protocolFeeBps },
+      });
+
+      sendSuccess(res, updated);
    } catch (error) {
       next(error);
    }
