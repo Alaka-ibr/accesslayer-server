@@ -19,6 +19,7 @@ import keysRouter from './keys/keys.routes';
 import notificationsRouter from './notifications/notification.routes';
 import horizonWebhookRouter from './webhooks/horizon-webhook.routes';
 import vestingRouter from './vesting/vesting.routes';
+import investorRouter from './investor/investor.routes';
 import { BASE as CREATORS_BASE } from '../constants/creator.constants';
 
 const router = Router();
@@ -47,5 +48,6 @@ router.use('/keys', routeBodySizeLimit('default'), keysRouter);
 router.use('/notifications', routeBodySizeLimit('default'), notificationsRouter);
 router.use('/webhooks', routeBodySizeLimit('default'), horizonWebhookRouter);
 router.use('/vesting', routeBodySizeLimit('default'), vestingRouter);
+router.use('/investor', routeBodySizeLimit('default'), investorRouter);
 
 export default router;
