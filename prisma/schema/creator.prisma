@@ -11,6 +11,10 @@ model CreatorProfile {
   isVerified      Boolean  @default(false)
   tradingPaused   Boolean  @default(false)
   circulatingSupply Decimal @default(0)
+  /// Creator royalty charged on buys, in basis points (100 = 1%).
+  creatorRoyaltyBuyBps  Int @default(0)
+  /// Creator royalty charged on sells, in basis points (100 = 1%).
+  creatorRoyaltySellBps Int @default(0)
   perks           Json?
   followersCount  Int      @default(0)
   createdAt       DateTime @default(now())

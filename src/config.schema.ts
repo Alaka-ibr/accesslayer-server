@@ -204,6 +204,14 @@ export const envSchema = z
          .positive()
          .default(60),
 
+      // Price movement detection job (feeds price_moved notifications)
+      DETECT_PRICE_MOVEMENTS_ENABLED: booleanCoerce.default(true),
+      DETECT_PRICE_MOVEMENTS_INTERVAL_MINUTES: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(5),
+
       // Request body size limits (see docs/body-size-limits.md).
       // Accepts any size string understood by the `bytes` package used
       // internally by body-parser (e.g. '100kb', '1mb', '10mb').

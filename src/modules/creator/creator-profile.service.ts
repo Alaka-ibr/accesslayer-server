@@ -11,6 +11,7 @@ import { normalizeSocialLinkUrl } from './creator-social-link-url.utils';
 import { truncateString } from '../../utils/string-truncate.utils';
 import { computePriceChange } from '../../utils/price-change.utils';
 import { sanitizeDisplayName } from './creator-display-name-sanitize.utils';
+import { invalidateKeyFeesCache } from '../keys/key-fees.service';
 
 const CREATOR_PROFILE_LIMITS = {
    displayName: 50,
@@ -196,8 +197,21 @@ export async function upsertCreatorProfile(
          bio: normalizedPayload.bio,
          avatarUrl: normalizedPayload.avatarUrl,
          perks: normalizedPayload.perks as any,
+         ...(normalizedPayload.creatorRoyaltyBuyBps !== undefined
+            ? { creatorRoyaltyBuyBps: normalizedPayload.creatorRoyaltyBuyBps }
+            : {}),
+         ...(normalizedPayload.creatorRoyaltySellBps !== undefined
+            ? { creatorRoyaltySellBps: normalizedPayload.creatorRoyaltySellBps }
+            : {}),
       },
    });
+
+   if (
+      normalizedPayload.creatorRoyaltyBuyBps !== undefined ||
+      normalizedPayload.creatorRoyaltySellBps !== undefined
+   ) {
+      await invalidateKeyFeesCache(creatorId);
+   }
 
    return {
       creatorId: profile.id,
