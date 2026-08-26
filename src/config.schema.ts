@@ -211,6 +211,13 @@ export const envSchema = z
       BODY_SIZE_LIMIT_AUTH: optionalNonEmptyString,
       BODY_SIZE_LIMIT_ADMIN: optionalNonEmptyString,
       BODY_SIZE_LIMIT_CREATORS: optionalNonEmptyString,
+
+      // Distributed tracing
+      // Shared secret trusted internal callers present in the
+      // `x-internal-service-token` header to have their incoming
+      // `X-Trace-Id` header honored instead of a freshly generated one.
+      // Left unset by default, so no caller is trusted unless configured.
+      TRACE_ID_TRUSTED_TOKEN: optionalNonEmptyString,
    })
    .superRefine((data, ctx) => {
       if (data.MODE === 'production' && data.STELLAR_NETWORK === 'testnet') {
