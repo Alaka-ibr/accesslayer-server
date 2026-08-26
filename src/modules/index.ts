@@ -1,3 +1,4 @@
+import { routeBodySizeLimit } from '../middlewares/body-size-limit.middleware';
 import { Router } from 'express';
 import authRouter from './auth/auth.routes';
 import healthRouter from './health/health.routes';

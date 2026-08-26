@@ -1,3 +1,5 @@
+import { httpDistributeDividend } from '../dividends/dividend.controllers';
+import { requireJwtAuth } from '../../middlewares/jwt-auth.middleware';
 import { Router } from 'express';
 import { sendNotFound, sendSuccess } from '../../utils/api-response.utils';
 import {
@@ -46,6 +48,7 @@ creatorsRouter.post(
    validateBody(buySchema),
    httpBuyCreatorKey
 );
+creatorsRouter.post('/:id/dividends', requireJwtAuth, httpDistributeDividend);
 creatorsRouter.get('/:id/posts', validateCreatorParam('id'), httpListPosts);
 creatorsRouter.post(
    '/:id/posts',

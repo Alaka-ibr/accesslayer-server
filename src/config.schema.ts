@@ -85,6 +85,10 @@ export const envSchema = z
       ENABLE_SCHEMA_VERSION_HEADER: booleanCoerce.default(true),
       ENABLE_REQUEST_LOGGING: booleanCoerce.default(true),
       DB_QUERY_TIMEOUT_MS: z.coerce.number().default(5000),
+      DB_POOL_WAIT_WARN_MS: z.coerce.number().int().positive().default(2000),
+      DB_POOL_WAIT_ERROR_MS: z.coerce.number().int().positive().default(5000),
+      WEBHOOK_MAX_PER_CREATOR: z.coerce.number().int().positive().default(5),
+      WEBHOOK_RETRY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
 
       APP_SECRET: z
          .string()

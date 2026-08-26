@@ -9,13 +9,14 @@ import {
 } from './admin.controllers';
 import { httpSyncKeyState } from './key-sync.controllers';
 import { adminGuard, AdminRequest } from '../../middlewares/admin-guard.middleware';
-import { requireJwtAuth, requireKeyCreator, AuthenticatedRequest } from '../../middlewares/jwt-auth.middleware';
+import { requireKeyCreator, AuthenticatedRequest } from '../../middlewares/jwt-auth.middleware';
 import {
    sendError,
    sendNotFound,
    sendSuccess,
    sendValidationError,
    sendConflict,
+   sendForbidden,
    zodIssuesToDetails,
 } from '../../utils/api-response.utils';
 import { ErrorCode } from '../../constants/error.constants';
@@ -208,7 +209,7 @@ adminRouter.post('/timelock/:proposalId/cancel', adminGuard, async (req: AdminRe
  *
  * List all pending and executed timelock proposals.
  */
-adminRouter.get('/timelock/proposals', adminGuard, async (req: AdminRequest, res, next) => {
+adminRouter.get('/timelock/proposals', adminGuard, async (_req: AdminRequest, res, next) => {
    try {
       const proposals = await prisma.governanceProposal.findMany({
          where: { keyId: 'timelock' },
@@ -302,4 +303,150 @@ adminRouter.post('/creator/:keyId/supply-cap', requireKeyCreator('keyId'), async
    }
 });
 
+
+// ── Multi-sig Pause Coordination (#826) ──────────────────────────
+
+/**
+ * POST /api/v1/admin/keys/:keyId/pause/propose
+ * Initiates a trading pause proposal requiring two distinct admin signatures.
+ */
+adminRouter.post("/keys/:keyId/pause/propose", adminGuard, async (req: AdminRequest, res, next) => {
+   try {
+      const keyId = String(req.params.keyId);
+
+      const creator = await prisma.creatorProfile.findFirst({
+         where: { OR: [{ id: keyId }, { handle: keyId }] },
+      });
+
+      if (!creator) {
+         sendNotFound(res, "Key");
+         return;
+      }
+
+      const proposalId = `pause-${creator.id}-${Date.now()}`;
+      const proposerWallet = req.adminId || "unknown";
+
+      // Store the pending proposal in the database
+      const proposal = await prisma.pauseProposal.create({
+         data: {
+            proposalId,
+            keyId: creator.id,
+            proposerWallet,
+            status: "pending",
+         },
+      });
+
+      // Also record proposal in activity log
+      await prisma.activity.create({
+         data: {
+            type: "TRADING_PAUSE_PROPOSED",
+            actor: proposerWallet,
+            creatorId: creator.id,
+            payload: {
+               proposalId,
+               keyId: creator.id,
+               notification: "pause_proposal_created",
+            },
+         },
+      });
+
+      sendSuccess(
+         res,
+         {
+            proposalId: proposal.proposalId,
+            keyId: creator.id,
+            proposerWallet,
+            status: "pending",
+            notification: "pause_proposal_created",
+         },
+         201
+      );
+   } catch (error) {
+      logger.error({ error, keyId: req.params.keyId }, "Pause propose failed");
+      next(error);
+   }
+});
+
+/**
+ * POST /api/v1/admin/keys/:keyId/pause/approve
+ * Second admin approves and executes the trading pause proposal.
+ */
+adminRouter.post("/keys/:keyId/pause/approve", adminGuard, async (req: AdminRequest, res, next) => {
+   try {
+      const keyId = String(req.params.keyId);
+      const approverWallet = req.adminId || "unknown";
+
+      const creator = await prisma.creatorProfile.findFirst({
+         where: { OR: [{ id: keyId }, { handle: keyId }] },
+      });
+
+      if (!creator) {
+         sendNotFound(res, "Key");
+         return;
+      }
+
+      const proposal = await prisma.pauseProposal.findFirst({
+         where: { keyId: creator.id, status: "pending" },
+         orderBy: { createdAt: "desc" },
+      });
+
+      if (!proposal) {
+         sendNotFound(res, "Pending pause proposal");
+         return;
+      }
+
+      // Reject approve calls from the same wallet that proposed
+      if (
+         proposal.proposerWallet.toLowerCase() === approverWallet.toLowerCase()
+      ) {
+         sendForbidden(
+            res,
+            "Cannot approve your own pause proposal. Multi-sig requires two distinct admins."
+         );
+         return;
+      }
+
+      // Mark proposal executed and pause trading on the key
+      await prisma.pauseProposal.update({
+         where: { id: proposal.id },
+         data: {
+            status: "executed",
+            approverWallet,
+            executedAt: new Date(),
+         },
+      });
+
+      await prisma.creatorProfile.update({
+         where: { id: creator.id },
+         data: { tradingPaused: true },
+      });
+
+      // Record approval in activity
+      await prisma.activity.create({
+         data: {
+            type: "TRADING_PAUSE_APPROVED",
+            actor: approverWallet,
+            creatorId: creator.id,
+            payload: {
+               proposalId: proposal.proposalId,
+               keyId: creator.id,
+               notification: "trading_paused",
+            },
+         },
+      });
+
+      sendSuccess(res, {
+         proposalId: proposal.proposalId,
+         keyId: creator.id,
+         status: "executed",
+         isTradingPaused: true,
+         notification: "trading_paused",
+      });
+   } catch (error) {
+      logger.error({ error, keyId: req.params.keyId }, "Pause approve failed");
+      next(error);
+   }
+});
+
 export default adminRouter;
+
