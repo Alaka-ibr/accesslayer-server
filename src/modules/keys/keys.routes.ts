@@ -9,13 +9,15 @@ import {
    zodIssuesToDetails,
 } from '../../utils/api-response.utils';
 import { ErrorCode } from '../../constants/error.constants';
-import { getKeyPriceHistory, PRICE_HISTORY_INTERVALS } from './key-price-history.service';
-import { getKeyFees, KeyNotFoundError } from './key-fees.service';
 import {
-   KeySearchQueryTooShortError,
-   searchKeys,
-} from './key-search.service';
+   getKeyPriceHistory,
+   PRICE_HISTORY_INTERVALS,
+} from './key-price-history.service';
+import { getKeyFees, KeyNotFoundError } from './key-fees.service';
+import { KeySearchQueryTooShortError, searchKeys } from './key-search.service';
 import { KEY_SEARCH_MIN_QUERY_LENGTH } from '../../constants/notifications.constants';
+import dividendRouter from '../dividends/dividend.routes';
+import whitelistRouter from '../whitelist/whitelist.routes';
 
 const priceHistoryQuerySchema = z.object({
    from: z.string().datetime(),
@@ -120,5 +122,11 @@ router.get('/:keyId/price-history', async (req, res, next) => {
       next(error);
    }
 });
+
+// Mount dividend routes
+router.use('/', dividendRouter);
+
+// Mount whitelist routes
+router.use('/', whitelistRouter);
 
 export default router;

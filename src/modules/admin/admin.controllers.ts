@@ -7,6 +7,7 @@ import {
 } from '../../utils/api-response.utils';
 import { prisma } from '../../utils/prisma.utils';
 import { emitAuditEvent } from '../../utils/audit.utils';
+import { createAuditEntry } from './audit-log.service';
 import { AdminRequest } from '../../middlewares/admin-guard.middleware';
 import { Response } from 'express';
 import { z } from 'zod';
@@ -20,6 +21,14 @@ const UpdateCreatorMetadataSchema = z.object({
 });
 
 type UpdateCreatorMetadataInput = z.infer<typeof UpdateCreatorMetadataSchema>;
+
+const GetAuditLogSchema = z.object({
+   limit: z.coerce.number().int().positive().max(100).optional().default(50),
+   cursor: z.string().optional(),
+   actionType: z.string().optional(),
+});
+
+type GetAuditLogInput = z.infer<typeof GetAuditLogSchema>;
 
 export const httpUpdateCreatorMetadata: AsyncController = async (
    req,
@@ -91,6 +100,14 @@ export const httpUpdateCreatorMetadata: AsyncController = async (
             target: 'CreatorProfile',
             targetId: id,
             metadata: changes,
+         });
+
+         // Log to queryable audit log
+         await createAuditEntry({
+            actorWallet: actorId,
+            actionType: 'update_creator_metadata',
+            targetId: id,
+            payload: changes,
          });
       }
 
@@ -196,6 +213,14 @@ export const httpReplayIndexerEvents: AsyncController = async (
             targetId: String(startLedger),
             metadata: { startLedger, endLedger: endLedger || null, dryRun },
          });
+
+         // Log to queryable audit log
+         await createAuditEntry({
+            actorWallet: adminId || 'unknown',
+            actionType: 'replay_indexer_events',
+            targetId: String(startLedger),
+            payload: { startLedger, endLedger: endLedger || null, dryRun },
+         });
       }
 
       sendSuccess(res, replayInitiated);
@@ -232,6 +257,14 @@ export const httpUpdateProtocolFee = async (
          metadata: { protocolFeeBps: updated.protocolFeeBps },
       });
 
+      // Log to queryable audit log
+      await createAuditEntry({
+         actorWallet: req.adminId || 'unknown',
+         actionType: 'protocol_fee_updated',
+         targetId: 'default',
+         payload: { protocolFeeBps: updated.protocolFeeBps },
+      });
+
       sendSuccess(res, updated);
    } catch (error) {
       next(error);
@@ -259,14 +292,64 @@ export const httpSetKeyTradingPaused = async (
          data: { tradingPaused },
       });
       if (creator.tradingPaused !== tradingPaused) {
+         const actionType = tradingPaused
+            ? 'key_trading_paused'
+            : 'key_trading_resumed';
          await emitAuditEvent({
             actor: req.adminId!,
-            action: tradingPaused ? 'key_trading_paused' : 'key_trading_resumed',
+            action: actionType,
             target: 'CreatorKey',
             targetId: creatorId,
          });
+
+         // Log to queryable audit log
+         await createAuditEntry({
+            actorWallet: req.adminId!,
+            actionType,
+            targetId: creatorId,
+            payload: { tradingPaused },
+         });
       }
       sendSuccess(res, updated);
+   } catch (error) {
+      next(error);
+   }
+};
+
+export const httpGetAuditLog: AsyncController = async (
+   req: AdminRequest,
+   res: Response,
+   next
+) => {
+   try {
+      const parsed = GetAuditLogSchema.safeParse(req.query);
+      if (!parsed.success) {
+         return sendValidationError(res, 'Invalid query parameters', [
+            {
+               field: 'query',
+               message: 'Invalid pagination or filter parameters',
+            },
+         ]);
+      }
+
+      const input = parsed.data as GetAuditLogInput;
+      const { getAuditLogs } = await import('./audit-log.service');
+
+      const result = await getAuditLogs({
+         limit: input.limit,
+         cursor: input.cursor,
+         actionType: input.actionType,
+      });
+
+      sendSuccess(res, {
+         entries: result.entries,
+         pagination: {
+            limit: input.limit,
+            cursor: input.cursor,
+            nextCursor: result.nextCursor,
+            hasMore: result.hasMore,
+         },
+      });
    } catch (error) {
       next(error);
    }
