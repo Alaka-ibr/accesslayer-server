@@ -4,6 +4,7 @@ import type { StellarSignedRequest } from '../../middlewares/stellar-signature.m
 import { ErrorCode } from '../../constants/error.constants';
 import { sendError, sendSuccess } from '../../utils/api-response.utils';
 import { buyGateway } from './buy.service';
+import { assertTradingActive, TradingPausedError } from '../keys/key-trading.service';
 
 export const buySchema = z.object({
    quantity: z.number().int().positive(),
@@ -22,6 +23,15 @@ export async function httpBuyCreatorKey(
    const body = req.body as BuyRequestBody;
 
    const walletAddress = req.walletAddress!;
+   try {
+      await assertTradingActive(String(req.params.id));
+   } catch (error) {
+      if (error instanceof TradingPausedError) {
+         sendError(res, 503, ErrorCode.INTERNAL_ERROR, error.message);
+         return;
+      }
+      throw error;
+   }
    const required = body.key_cost_xlm * body.quantity + body.fee_xlm;
    const balance = await buyGateway.getXlmBalance(walletAddress);
    if (balance < required) {

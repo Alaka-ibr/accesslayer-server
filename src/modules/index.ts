@@ -15,6 +15,8 @@ import walletsRouter from './wallets/wallets.routes';
 import alertsRouter from './alerts/alert.router';
 import tradingRouter from './trading/multi-buy.routes';
 import sequencerRouter from './admin/sequencer.routes';
+import keyPriceHistoryRouter from './keys/key-price-history.routes';
+import horizonWebhookRouter from './webhooks/horizon-webhook.routes';
 import { BASE as CREATORS_BASE } from '../constants/creator.constants';
 import { routeBodySizeLimit } from '../middlewares/body-size-limit.middleware';
 
@@ -40,5 +42,7 @@ router.use('/wallets', routeBodySizeLimit('default'), walletsRouter);
 router.use('/alerts', routeBodySizeLimit('default'), alertsRouter);
 router.use('/trading', routeBodySizeLimit('default'), tradingRouter);
 router.use('/internal', routeBodySizeLimit('default'), sequencerRouter);
+router.use('/keys', routeBodySizeLimit('default'), keyPriceHistoryRouter);
+router.use('/webhooks', routeBodySizeLimit('default'), horizonWebhookRouter);
 
 export default router;

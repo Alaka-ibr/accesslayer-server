@@ -9,6 +9,8 @@ model CreatorProfile {
   avatarUrl       String?
   perkSummary     String?
   isVerified      Boolean  @default(false)
+  tradingPaused   Boolean  @default(false)
+  circulatingSupply Decimal @default(0)
   perks           Json?
   followersCount  Int      @default(0)
   createdAt       DateTime @default(now())
@@ -17,8 +19,27 @@ model CreatorProfile {
   user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   priceSnapshot  CreatorPriceSnapshot?
   priceHistory   CreatorPriceHistory[]
+  pendingPurchases PendingKeyPurchase[]
   posts          CreatorPost[]
   followers      Follow[]
+}
+
+model PendingKeyPurchase {
+  id             String   @id @default(cuid())
+  creatorId      String
+  buyerAddress   String
+  memo           String   @unique
+  quantity       Decimal
+  status         String   @default("PENDING")
+  transactionHash String?
+  settledAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  creator CreatorProfile @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, status])
+  @@index([buyerAddress, status])
 }
 
 model CreatorPost {

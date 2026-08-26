@@ -167,6 +167,7 @@ export const envSchema = z
          )
          .default('https://soroban-testnet.stellar.org'),
       STELLAR_AUTH_SECRET: optionalNonEmptyString,
+      HORIZON_WEBHOOK_SECRET: optionalNonEmptyString,
 
       // Shared secret that lets trusted internal services bypass per-wallet
       // rate limits (e.g. the buy endpoint's sliding window limiter).
