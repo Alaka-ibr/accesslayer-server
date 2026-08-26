@@ -32,6 +32,15 @@ jest.mock('../../utils/logger.utils', () => ({
    },
 }));
 
+// processTradeEvents invalidates the volume leaderboard cache (#785) after
+// creating each Activity row — stub Redis so that call resolves immediately
+// instead of attempting a real connection.
+jest.mock('../../utils/redis.utils', () => ({
+   getRedis: jest.fn(() => ({
+      del: jest.fn().mockResolvedValue(1),
+   })),
+}));
+
 describe('processTradeEvents integration test', () => {
    const mockPrisma = prisma as unknown as {
       activity: { create: jest.Mock };

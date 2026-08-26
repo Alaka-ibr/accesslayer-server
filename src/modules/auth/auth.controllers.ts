@@ -1,8 +1,8 @@
-import { CreateUserWithPasswordSchema } from './auth.schemas';
+import { CreateUserWithPasswordType } from './auth.schemas';
 import { AsyncController } from '../../types/auth.types';
 import { checkUserEmailExists, createNewUserWithPassword } from './auth.utils';
 import { SendMailAsync } from '../../utils/mail.utils';
-import { HTTP_STATUS } from '../../utils/logger.utils';
+import { HTTP_STATUS, logger } from '../../utils/logger.utils';
 import bcrypt from 'bcrypt';
 import { refreshAccessToken } from './token-refresh.utils';
 
@@ -12,7 +12,9 @@ export const httpRegisterUserWithPassword: AsyncController = async (
    next
 ) => {
    try {
-      const validatedUserDetails = CreateUserWithPasswordSchema.parse(req.body);
+      // Body is already validated and stripped of unknown fields by the
+      // validateBody(CreateUserWithPasswordSchema) middleware on this route.
+      const validatedUserDetails = req.body as CreateUserWithPasswordType;
 
       const emailExists = await checkUserEmailExists(
          validatedUserDetails.email
@@ -48,14 +50,13 @@ export const httpRegisterUserWithPassword: AsyncController = async (
          },
       });
    } catch (error) {
-      console.log(error);
+      logger.error({ error, requestId: req.requestId }, 'Failed to register user');
       next(error);
    }
 };
 
 export const httpLogin: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
       res.status(200).json({
          success: true,
          message: 'Login Successful',
@@ -65,14 +66,13 @@ export const httpLogin: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error({ error, requestId: req.requestId }, 'Login failed');
       next(error);
-      console.log(error);
    }
 };
 
 export const httpLogout: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
       res.status(200).json({
          success: true,
          message: 'Login Successful',
@@ -82,14 +82,13 @@ export const httpLogout: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error({ error, requestId: req.requestId }, 'Logout failed');
       next(error);
-      console.log(error);
    }
 };
 
 export const httpUpdateProfile: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
       res.status(200).json({
          success: true,
          message: 'Login Successful',
@@ -99,14 +98,16 @@ export const httpUpdateProfile: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error(
+         { error, requestId: req.requestId },
+         'Failed to update profile'
+      );
       next(error);
-      console.log(error);
    }
 };
 
 export const httpVerifyEmail: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
       res.status(200).json({
          success: true,
          message: 'Login Successful',
@@ -116,14 +117,16 @@ export const httpVerifyEmail: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error(
+         { error, requestId: req.requestId },
+         'Failed to verify email'
+      );
       next(error);
-      console.log(error);
    }
 };
 
 export const httpResetPassword: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
       res.status(200).json({
          success: true,
          message: 'Login Successful',
@@ -133,8 +136,11 @@ export const httpResetPassword: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error(
+         { error, requestId: req.requestId },
+         'Failed to reset password'
+      );
       next(error);
-      console.log(error);
    }
 };
 
@@ -172,14 +178,16 @@ export const httpRefreshToken: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error(
+         { error, requestId: req.requestId },
+         'Failed to refresh token'
+      );
       next(error);
-      console.log(error);
    }
 };
 
 export const httpGetProfile: AsyncController = async (req, res, next) => {
    try {
-      console.log(req);
       res.status(200).json({
          success: true,
          message: 'Login Successful',
@@ -189,7 +197,7 @@ export const httpGetProfile: AsyncController = async (req, res, next) => {
          },
       });
    } catch (error) {
+      logger.error({ error, requestId: req.requestId }, 'Failed to get profile');
       next(error);
-      console.log(error);
    }
 };

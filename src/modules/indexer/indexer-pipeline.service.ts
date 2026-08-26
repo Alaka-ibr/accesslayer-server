@@ -7,6 +7,8 @@ import { logger } from '../../utils/logger.utils';
 import { processIndexerChainEvents, IndexerChainEvent } from '../../utils/indexer-event-processor.utils';
 import { dedupeChainEvents } from '../../utils/indexer-dedupe.utils';
 import { logSellTransactionConfirmed } from '../../utils/sell-transaction-logger.utils';
+import { persistCirculatingSupply } from './persist-circulating-supply.service';
+import { invalidateVolumeLeaderboardCache } from '../creators/creator-leaderboard-volume.service';
 
 /**
  * Processes a batch of on-chain trade events (KEY_BOUGHT or KEY_SOLD).
@@ -55,6 +57,10 @@ export async function processTradeEvents(events: IndexerChainEvent[]): Promise<v
          },
       });
 
+      // Invalidate the volume leaderboard cache so it reflects this trade
+      // instead of waiting out the full TTL (#785).
+      await invalidateVolumeLeaderboardCache();
+
       // 2. updateOwnership (balance delta: positive for buy, negative for sell)
       const balanceChange = event.eventType === 'KEY_BOUGHT' ? Number(amount) : -Number(amount);
       await updateOwnership(actor, creatorId, balanceChange, {
@@ -69,6 +75,8 @@ export async function processTradeEvents(events: IndexerChainEvent[]): Promise<v
          tradeAt: new Date(tradeAt),
          ledger: Number(ledger),
       });
+
+      await persistCirculatingSupply(creatorId);
 
       // 4. Emit a structured log for confirmed sells, mirroring buy-side logging.
       if (event.eventType === 'KEY_SOLD') {

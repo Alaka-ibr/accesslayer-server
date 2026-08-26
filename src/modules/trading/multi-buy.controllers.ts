@@ -9,6 +9,7 @@ import {
    ErrorCode,
 } from '../../utils/api-response.utils';
 import { horizonGet } from '../../clients/horizon.client';
+import { assertTradingActive, TradingPausedError } from '../keys/key-trading.service';
 
 async function getCurrentLedger(): Promise<number> {
    const res = await horizonGet('/');
@@ -67,6 +68,8 @@ export const httpMultiBuy: AsyncController = async (req, res, next) => {
 
       const { buyer, legs, global_deadline_ledger } = parsed.data;
 
+      await Promise.all(legs.map(leg => assertTradingActive(leg.creator)));
+
       const results = await executeMultiBuy(
          buyer,
          legs,
@@ -80,6 +83,10 @@ export const httpMultiBuy: AsyncController = async (req, res, next) => {
 
       sendSuccess(res, results);
    } catch (err) {
+      if (err instanceof TradingPausedError) {
+         sendError(res, 503, ErrorCode.INTERNAL_ERROR, err.message);
+         return;
+      }
       if (err instanceof MultiBuyError) {
          const statusMap: Record<string, number> = {
             legs_empty: 400,

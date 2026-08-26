@@ -1,3 +1,4 @@
+import { routeBodySizeLimit } from '../middlewares/body-size-limit.middleware';
 import { Router } from 'express';
 import authRouter from './auth/auth.routes';
 import healthRouter from './health/health.routes';
@@ -15,8 +16,12 @@ import walletsRouter from './wallets/wallets.routes';
 import alertsRouter from './alerts/alert.router';
 import tradingRouter from './trading/multi-buy.routes';
 import sequencerRouter from './admin/sequencer.routes';
+import keysRouter from './keys/keys.routes';
+import notificationsRouter from './notifications/notification.routes';
+import horizonWebhookRouter from './webhooks/horizon-webhook.routes';
+import vestingRouter from './vesting/vesting.routes';
+import investorRouter from './investor/investor.routes';
 import { BASE as CREATORS_BASE } from '../constants/creator.constants';
-import { routeBodySizeLimit } from '../middlewares/body-size-limit.middleware';
 
 const router = Router();
 
@@ -29,6 +34,8 @@ router.use('/auth', routeBodySizeLimit('auth'), authRouter);
 router.use('/config', routeBodySizeLimit('default'), configRouter);
 router.use(CREATORS_BASE, routeBodySizeLimit('creators'), creatorsRouter);
 router.use(CREATORS_BASE, routeBodySizeLimit('creators'), creatorRouter);
+router.use('/creator', routeBodySizeLimit('creators'), creatorsRouter);
+router.use('/creator', routeBodySizeLimit('creators'), creatorRouter);
 router.use('/metrics', routeBodySizeLimit('default'), metricsRouter);
 router.use('/ledger', routeBodySizeLimit('default'), ledgerRouter);
 router.use('/admin', routeBodySizeLimit('admin'), adminRouter);
@@ -40,5 +47,10 @@ router.use('/wallets', routeBodySizeLimit('default'), walletsRouter);
 router.use('/alerts', routeBodySizeLimit('default'), alertsRouter);
 router.use('/trading', routeBodySizeLimit('default'), tradingRouter);
 router.use('/internal', routeBodySizeLimit('default'), sequencerRouter);
+router.use('/keys', routeBodySizeLimit('default'), keysRouter);
+router.use('/notifications', routeBodySizeLimit('default'), notificationsRouter);
+router.use('/webhooks', routeBodySizeLimit('default'), horizonWebhookRouter);
+router.use('/vesting', routeBodySizeLimit('default'), vestingRouter);
+router.use('/investor', routeBodySizeLimit('default'), investorRouter);
 
 export default router;
