@@ -12,6 +12,10 @@ import {
 import { checkOptionalDependencies } from './utils/startup.utils';
 import { describeDatabasePoolConfig } from './utils/db-pool-config.utils';
 import { stopOwnershipSnapshotCleanupJob } from './jobs/ownership-snapshot-cleanup.job';
+import {
+   startDetectPriceMovementsJob,
+   stopDetectPriceMovementsJob,
+} from './jobs/detect-price-movements.job';
 import { connectRedis, disconnectRedis } from './utils/redis.utils';
 import { broadcastServerClosing, closeAllConnections } from './utils/sse-fanout.utils';
 import { buildStartupConfigSummary } from './utils/config-summary.utils';
@@ -62,6 +66,8 @@ async function startServer() {
       // Check and warn about disabled optional dependencies (non-blocking)
       checkOptionalDependencies();
 
+      startDetectPriceMovementsJob();
+
       const server = app.listen(envConfig.PORT, () => {
          logger.info(`Server running on port ${envConfig.PORT}`);
       });
@@ -94,6 +100,7 @@ function createGracefulShutdownHandler(server: ReturnType<typeof app.listen>) {
       closeAllConnections();
 
       stopOwnershipSnapshotCleanupJob();
+      stopDetectPriceMovementsJob();
       await prisma.$disconnect();
       logger.info('Database connection closed');
 
