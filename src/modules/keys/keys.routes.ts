@@ -18,6 +18,9 @@ import { KeySearchQueryTooShortError, searchKeys } from './key-search.service';
 import { KEY_SEARCH_MIN_QUERY_LENGTH } from '../../constants/notifications.constants';
 import dividendRouter from '../dividends/dividend.routes';
 import whitelistRouter from '../whitelist/whitelist.routes';
+import { requireJwtAuth, AuthenticatedRequest } from '../../middlewares/jwt-auth.middleware';
+import { prisma } from '../../utils/prisma.utils';
+import { logger } from '../../utils/logger.utils';
 
 const priceHistoryQuerySchema = z.object({
    from: z.string().datetime(),
@@ -178,5 +181,95 @@ router.use('/', dividendRouter);
 
 // Mount whitelist routes
 router.use('/', whitelistRouter);
+
+// ── POST /:keyId/burn ─────────────────────────────────────────
+
+const burnSchema = z.object({
+   quantity: z.number().int().positive(),
+});
+
+/**
+ * POST /api/v1/keys/:keyId/burn
+ *
+ * Burn keys held by the authenticated wallet. Validates holder balance,
+ * decrements holder balance and circulatingSupply atomically, writes
+ * an activity record, and returns updated values.
+ */
+router.post('/:keyId/burn', requireJwtAuth, async (req: AuthenticatedRequest, res, next) => {
+   try {
+      const keyId = String(req.params.keyId);
+      const wallet = req.user!.wallet;
+
+      const parsed = burnSchema.safeParse(req.body);
+      if (!parsed.success) {
+         sendValidationError(res, 'Invalid request body', zodIssuesToDetails(parsed.error.issues));
+         return;
+      }
+
+      const { quantity } = parsed.data;
+
+      const creator = await prisma.creatorProfile.findUnique({
+         where: { id: keyId },
+         select: { id: true, circulatingSupply: true },
+      });
+      if (!creator) {
+         sendNotFound(res, 'Key');
+         return;
+      }
+
+      const ownership = await prisma.keyOwnership.findUnique({
+         where: { ownerAddress_creatorId: { ownerAddress: wallet, creatorId: keyId } },
+      });
+
+      const balance = ownership ? BigInt(ownership.balance.toString()) : 0n;
+      if (balance < BigInt(quantity)) {
+         sendError(res, 400, ErrorCode.BAD_REQUEST, 'Insufficient key balance for burn');
+         return;
+      }
+
+      // TODO: submit burn contract call via Stellar SDK
+      // On-chain failure should return 502 before reaching this point.
+
+      const newBalance = balance - BigInt(quantity);
+      const currentCirculating = BigInt(creator.circulatingSupply.toString());
+      const newCirculating = currentCirculating - BigInt(quantity);
+
+      await prisma.$transaction([
+         prisma.keyOwnership.update({
+            where: { ownerAddress_creatorId: { ownerAddress: wallet, creatorId: keyId } },
+            data: { balance: newBalance.toString() },
+         }),
+         prisma.creatorProfile.update({
+            where: { id: keyId },
+            data: { circulatingSupply: newCirculating.toString() },
+         }),
+         prisma.activity.create({
+            data: {
+               type: 'KEY_BURNED',
+               actor: wallet,
+               creatorId: keyId,
+               payload: {
+                  keyId,
+                  quantity,
+                  balanceAfter: newBalance.toString(),
+                  circulatingSupplyAfter: newCirculating.toString(),
+               },
+            },
+         }),
+      ]);
+
+      sendSuccess(res, {
+         circulatingSupply: newCirculating.toString(),
+         balance: newBalance.toString(),
+      });
+   } catch (error) {
+      logger.error({ error, keyId: req.params.keyId }, 'Key burn failed');
+      next(error);
+   }
+});
+
+router.all('/:keyId/burn', (_req, res) => {
+   res.set('Allow', 'POST').sendStatus(405);
+});
 
 export default router;
