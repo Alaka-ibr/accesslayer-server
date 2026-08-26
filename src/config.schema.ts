@@ -91,6 +91,25 @@ export const envSchema = z
          .min(32, 'APP_SECRET should be at least 32 characters')
          .default('accesslayer_default_development_secret_key_32_bytes_long'),
 
+      // JWT auth
+      JWT_SECRET: z
+         .string()
+         .min(32, 'JWT_SECRET should be at least 32 characters')
+         .default('accesslayer_default_development_jwt_secret_key_32_bytes'),
+      JWT_ISSUER: z.string().default('accesslayer-server'),
+      JWT_ACCESS_TOKEN_TTL_SECONDS: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(900),
+
+      // Redis cache
+      REDIS_URL: z.string().default('redis://localhost:6379'),
+      ENABLE_REDIS_CACHE: booleanCoerce.default(true),
+
+      // Key trade lockup
+      LOCKUP_DURATION_SECONDS: z.coerce.number().int().nonnegative().default(0),
+
       INDEXER_JITTER_FACTOR: z.coerce.number().min(0).max(1).default(0.1),
       BACKGROUND_JOB_LOCK_TTL_MS: z.coerce
          .number()

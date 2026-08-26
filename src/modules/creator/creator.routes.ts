@@ -5,11 +5,13 @@ import {
    getCreatorProfileHandler,
    upsertCreatorProfileHandler,
 } from './creator-profile.handlers';
+import { httpGetCreatorAnalytics } from './creator-analytics.controller';
 import { ROOT as CREATORS_ROOT } from '../../constants/creator.constants';
 import { cacheControl } from '../../middlewares/cache-control.middleware';
 import { CREATOR_PUBLIC_ROUTE_CACHE_PRESETS } from '../../constants/creator-public-cache.constants';
 import { CREATOR_PUBLIC_ROUTE_NAMES } from '../../constants/creator-public-routes.constants';
 import { requireCreatorProfileOwnership } from '../../middlewares/wallet-ownership.middleware';
+import { requireKeyCreator } from '../../middlewares/jwt-auth.middleware';
 
 const router = Router();
 
@@ -68,6 +70,21 @@ router.put(
 // 405 handler for /:creatorId/profile
 router.all('/:creatorId/profile', (_req, res) => {
    res.set('Allow', 'GET, PUT').sendStatus(405);
+});
+
+/**
+ * @route GET /api/v1/creators/:keyId/analytics
+ * @desc Daily aggregated trade analytics (past 30 days) for the caller's key
+ * @access JWT required — only the key creator may read analytics.
+ */
+router.get(
+   '/:keyId/analytics',
+   requireKeyCreator('keyId'),
+   httpGetCreatorAnalytics
+);
+// 405 handler for /:keyId/analytics
+router.all('/:keyId/analytics', (_req, res) => {
+   res.set('Allow', 'GET').sendStatus(405);
 });
 
 export default router;

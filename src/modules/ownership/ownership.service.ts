@@ -40,3 +40,53 @@ export async function updateOwnership(
         },
     });
 }
+
+/**
+ * Record a key buy, updating balance, weighted-average cost basis and
+ * lastBuyAt. Buy ingestion paths must call this (and invalidate the caches
+ * exposed by analytics/holdings/referrals modules) so portfolio data stays
+ * accurate.
+ */
+export async function recordKeyPurchase(
+    ownerAddress: string,
+    creatorId: string,
+    quantityBought: number,
+    pricePerKeyXlm: number,
+    boughtAt: Date = new Date()
+): Promise<KeyOwnership> {
+    const existing = await prisma.keyOwnership.findUnique({
+        where: {
+            ownerAddress_creatorId: { ownerAddress, creatorId },
+        },
+        select: { balance: true, costBasis: true },
+    });
+
+    const currentBalance = Number(existing?.balance ?? 0);
+    const currentCostBasis = Number(existing?.costBasis ?? 0);
+
+    const newBalance = Math.max(0, currentBalance + quantityBought);
+    // Weighted average cost across the open position; resets when flat.
+    const newCostBasis =
+        newBalance === 0
+            ? 0
+            : (currentCostBasis * currentBalance + pricePerKeyXlm * quantityBought) /
+              newBalance;
+
+    return prisma.keyOwnership.upsert({
+        where: {
+            ownerAddress_creatorId: { ownerAddress, creatorId },
+        },
+        update: {
+            balance: { increment: quantityBought },
+            costBasis: newCostBasis,
+            lastBuyAt: boughtAt,
+        },
+        create: {
+            ownerAddress,
+            creatorId,
+            balance: quantityBought,
+            costBasis: pricePerKeyXlm,
+            lastBuyAt: boughtAt,
+        },
+    });
+}

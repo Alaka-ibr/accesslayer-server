@@ -11,7 +11,13 @@ model KeyOwnership {
   
   // The amount of keys owned
   balance       Decimal  @default(0)
-  
+
+  // Average cost basis (XLM per key) across the current open position
+  costBasis     Decimal?
+
+  // Timestamp of the most recent buy used for lockup countdowns
+  lastBuyAt     DateTime?
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
