@@ -16,6 +16,8 @@ import { CREATOR_PUBLIC_ROUTE_NAMES } from '../../constants/creator-public-route
 import { requireCreatorProfileOwnership } from '../../middlewares/wallet-ownership.middleware';
 import { validateCreatorParam } from '../../middlewares/creator-param.middleware';
 import { requireStellarSignature } from '../../middlewares/stellar-signature.middleware';
+import { validateBody } from '../../middlewares/validate-body.middleware';
+import { UpsertCreatorProfileBodySchema } from './creator-profile.schemas';
 
 const router = Router();
 
@@ -71,6 +73,7 @@ router.put(
    validateCreatorParam('creatorId'),
    requireStellarSignature(),
    requireCreatorProfileOwnership('creatorId'),
+   validateBody(UpsertCreatorProfileBodySchema),
    upsertCreatorProfileHandler
 );
 // 405 handler for /:creatorId/profile
