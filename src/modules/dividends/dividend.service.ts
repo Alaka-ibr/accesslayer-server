@@ -50,10 +50,7 @@ export async function getDividendDistributions(
    try {
       const distributions = await prisma.dividendDistribution.findMany({
          where: { creatorId: input.creatorId },
-         orderBy: [
-            { distributionDate: 'desc' },
-            { id: 'desc' },
-         ],
+         orderBy: [{ distributionDate: 'desc' }, { id: 'desc' }],
          take,
          skip: input.cursor ? 1 : 0,
          cursor: input.cursor ? { id: input.cursor } : undefined,
@@ -62,9 +59,11 @@ export async function getDividendDistributions(
       const hasMore = distributions.length > limit;
       const result = distributions.slice(0, limit);
       const nextCursor =
-         hasMore && result.length > 0 ? result[result.length - 1].id : undefined;
+         hasMore && result.length > 0
+            ? result[result.length - 1].id
+            : undefined;
 
-      const records: DividendDistributionRecord[] = result.map((dist) => ({
+      const records: DividendDistributionRecord[] = result.map(dist => ({
          id: dist.id,
          creatorId: dist.creatorId,
          distributionDate: dist.distributionDate,
@@ -110,10 +109,7 @@ export async function getDividendClaims(
    try {
       const claims = await prisma.dividendClaim.findMany({
          where: { distributionId: input.distributionId },
-         orderBy: [
-            { recipientAddress: 'asc' },
-            { id: 'asc' },
-         ],
+         orderBy: [{ recipientAddress: 'asc' }, { id: 'asc' }],
          take,
          skip: input.cursor ? 1 : 0,
          cursor: input.cursor ? { id: input.cursor } : undefined,
@@ -122,9 +118,11 @@ export async function getDividendClaims(
       const hasMore = claims.length > limit;
       const result = claims.slice(0, limit);
       const nextCursor =
-         hasMore && result.length > 0 ? result[result.length - 1].id : undefined;
+         hasMore && result.length > 0
+            ? result[result.length - 1].id
+            : undefined;
 
-      const records: DividendClaimRecord[] = result.map((claim) => ({
+      const records: DividendClaimRecord[] = result.map(claim => ({
          id: claim.id,
          recipientAddress: claim.recipientAddress,
          amountXlm: claim.amountXlm,
@@ -168,11 +166,12 @@ export async function creatorExists(creatorId: string): Promise<boolean> {
    return !!creator;
 }
 
-
 export class InsufficientBalanceError extends Error {
-   constructor(message = "Insufficient wallet balance to cover dividend distribution") {
+   constructor(
+      message = 'Insufficient wallet balance to cover dividend distribution'
+   ) {
       super(message);
-      this.name = "InsufficientBalanceError";
+      this.name = 'InsufficientBalanceError';
    }
 }
 
@@ -188,7 +187,13 @@ export async function createDividendDistribution(params: {
    holderCount: number;
    perKeyAmount: number;
 }> {
-   const { creatorId, totalAmount, creatorWallet, txHash = `tx-${Date.now()}`, ledger = 1 } = params;
+   const {
+      creatorId,
+      totalAmount,
+      creatorWallet,
+      txHash = `tx-${Date.now()}`,
+      ledger = 1,
+   } = params;
 
    // 1. Verify creator exists
    const creator = await prisma.creatorProfile.findUnique({
@@ -197,7 +202,7 @@ export async function createDividendDistribution(params: {
    });
 
    if (!creator) {
-      throw new Error("Creator not found");
+      throw new Error('Creator not found');
    }
 
    // 2. Wallet balance check: check if creator wallet has insufficient balance
@@ -243,7 +248,7 @@ export async function createDividendDistribution(params: {
    // 5. Create per-holder claim records
    if (holders.length > 0) {
       await prisma.dividendClaim.createMany({
-         data: holders.map((h) => ({
+         data: holders.map(h => ({
             distributionId: dist.id,
             recipientAddress: h.ownerAddress,
             amountXlm: Number(h.balance) * perKeyAmount,
@@ -252,8 +257,8 @@ export async function createDividendDistribution(params: {
 
       // Write activity_log records for each recipient
       await prisma.activityLog.createMany({
-         data: holders.map((h) => ({
-            type: "dividend",
+         data: holders.map(h => ({
+            type: 'dividend',
             actor: h.ownerAddress,
             keyId: creatorId,
             creatorName: creator.displayName || creator.handle,
@@ -273,7 +278,7 @@ export async function createDividendDistribution(params: {
    // Also record general activity
    await prisma.activity.create({
       data: {
-         type: "DIVIDEND_DISTRIBUTED",
+         type: 'DIVIDEND_DISTRIBUTED',
          actor: creatorWallet,
          creatorId,
          payload: {
@@ -288,9 +293,23 @@ export async function createDividendDistribution(params: {
    });
 
    logger.info(
-      { distributionId: dist.id, creatorId, totalAmount, holderCount, perKeyAmount },
-      "Dividend distributed successfully"
+      {
+         distributionId: dist.id,
+         creatorId,
+         totalAmount,
+         holderCount,
+         perKeyAmount,
+      },
+      'Dividend distributed successfully'
    );
+
+   try {
+      const { invalidateCreatorDashboardCache } =
+         await import('../creator/creator-dashboard.service');
+      await invalidateCreatorDashboardCache(creatorId);
+   } catch {
+      // Non-critical cache invalidation failure
+   }
 
    return {
       distributionId: dist.id,

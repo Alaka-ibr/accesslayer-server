@@ -34,6 +34,8 @@ router.use('/auth', routeBodySizeLimit('auth'), authRouter);
 router.use('/config', routeBodySizeLimit('default'), configRouter);
 router.use(CREATORS_BASE, routeBodySizeLimit('creators'), creatorsRouter);
 router.use(CREATORS_BASE, routeBodySizeLimit('creators'), creatorRouter);
+router.use('/creator', routeBodySizeLimit('creators'), creatorsRouter);
+router.use('/creator', routeBodySizeLimit('creators'), creatorRouter);
 router.use('/metrics', routeBodySizeLimit('default'), metricsRouter);
 router.use('/ledger', routeBodySizeLimit('default'), ledgerRouter);
 router.use('/admin', routeBodySizeLimit('admin'), adminRouter);
