@@ -5,6 +5,7 @@ enum ActivityType {
   KEY_BOUGHT
   KEY_SOLD
   PROFILE_UPDATED
+  DIVIDEND_DISTRIBUTED
 }
 
 model Activity {
