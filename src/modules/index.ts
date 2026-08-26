@@ -19,7 +19,6 @@ import keysRouter from './keys/keys.routes';
 import notificationsRouter from './notifications/notification.routes';
 import horizonWebhookRouter from './webhooks/horizon-webhook.routes';
 import { BASE as CREATORS_BASE } from '../constants/creator.constants';
-import { routeBodySizeLimit } from '../middlewares/body-size-limit.middleware';
 
 const router = Router();
 

@@ -91,23 +91,24 @@ export const envSchema = z
          .min(32, 'APP_SECRET should be at least 32 characters')
          .default('accesslayer_default_development_secret_key_32_bytes_long'),
 
-      REDIS_URL: z.string().default('redis://localhost:6379'),
-
+      // JWT auth
       JWT_SECRET: z
          .string()
          .min(32, 'JWT_SECRET should be at least 32 characters')
-         .default('accesslayer_jwt_development_secret_key_32_bytes_long'),
-      JWT_EXPIRES_IN: z.string().default('24h'),
+         .default('accesslayer_default_development_jwt_secret_key_32_bytes'),
+      JWT_ISSUER: z.string().default('accesslayer-server'),
+      JWT_ACCESS_TOKEN_TTL_SECONDS: z.coerce
+         .number()
+         .int()
+         .positive()
+         .default(900),
 
-      SSE_HEARTBEAT_INTERVAL_MS: z.coerce.number().int().positive().default(15000),
-      SSE_QUEUE_CAPACITY: z.coerce.number().int().positive().default(500),
-      SSE_QUEUE_FULL_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
-      SSE_THROTTLE_DURATION_MS: z.coerce.number().int().positive().default(60000),
-      SSE_MAX_CONNECTIONS_PER_WALLET: z.coerce.number().int().positive().default(2),
-      SSE_MAX_SUBSCRIPTIONS_PER_WALLET: z.coerce.number().int().positive().default(5),
-      SSE_SUBSCRIPTION_TTL_MS: z.coerce.number().int().positive().default(86400000),
-      SSE_REPLAY_MAX_EVENTS: z.coerce.number().int().positive().default(1000),
-      SSE_PRUNE_INTERVAL_MS: z.coerce.number().int().positive().default(300000),
+      // Redis cache
+      REDIS_URL: z.string().default('redis://localhost:6379'),
+      ENABLE_REDIS_CACHE: booleanCoerce.default(true),
+
+      // Key trade lockup
+      LOCKUP_DURATION_SECONDS: z.coerce.number().int().nonnegative().default(0),
 
       INDEXER_JITTER_FACTOR: z.coerce.number().min(0).max(1).default(0.1),
       BACKGROUND_JOB_LOCK_TTL_MS: z.coerce
@@ -115,9 +116,7 @@ export const envSchema = z
          .int()
          .positive()
          .default(300000),
-      SLOW_QUERY_THRESHOLD_MS: z.coerce.number().int().positive().default(200),
-      DB_POOL_WAIT_WARN_MS: z.coerce.number().int().positive().default(500),
-      DB_POOL_WAIT_ERROR_MS: z.coerce.number().int().positive().default(2000),
+      SLOW_QUERY_THRESHOLD_MS: z.coerce.number().int().positive().default(500),
       CREATOR_LIST_SLOW_QUERY_THRESHOLD_MS: z.coerce
          .number()
          .int()
@@ -132,15 +131,6 @@ export const envSchema = z
          .number()
          .positive()
          .default(300000),
-
-      // Webhook settings
-      WEBHOOK_MAX_PER_CREATOR: z.coerce.number().int().positive().default(5),
-      WEBHOOK_RETRY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(3),
-      WEBHOOK_RETRY_BASE_DELAY_MS: z.coerce
-         .number()
-         .int()
-         .positive()
-         .default(1000),
 
       // Indexer feature flags
       ENABLE_INDEXER_DEDUPE: booleanCoerce.default(true),
@@ -166,25 +156,6 @@ export const envSchema = z
             'STELLAR_SOROBAN_RPC_URL must be a valid URL (e.g. https://soroban-testnet.stellar.org)'
          )
          .default('https://soroban-testnet.stellar.org'),
-      STELLAR_AUTH_SECRET: optionalNonEmptyString,
-      HORIZON_WEBHOOK_SECRET: optionalNonEmptyString,
-
-      // Shared secret that lets trusted internal services bypass per-wallet
-      // rate limits (e.g. the buy endpoint's sliding window limiter).
-      // Unset by default — no requests bypass rate limiting until configured.
-      INTERNAL_SERVICE_KEY: optionalNonEmptyString,
-
-      // Volume leaderboard (GET /api/v1/creators/leaderboard/volume, #785).
-      LEADERBOARD_VOLUME_WINDOW_DAYS: z.coerce
-         .number()
-         .int()
-         .positive()
-         .default(7),
-      LEADERBOARD_VOLUME_CACHE_TTL_SECONDS: z.coerce
-         .number()
-         .int()
-         .positive()
-         .default(300),
 
       // Ownership snapshot cleanup job
       OWNERSHIP_SNAPSHOT_TABLE_NAME: z
