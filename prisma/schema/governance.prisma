@@ -35,3 +35,18 @@ model PauseProposal {
   @@index([proposerWallet])
   @@map("pause_proposals")
 }
+
+model TimelockProposal {
+  id                 String    @id @default(cuid())
+  proposalId         String    @unique
+  changeType         String
+  payload            Json
+  executionNotBefore DateTime
+  status             String    @default("pending") // pending | executed | cancelled
+  createdAt          DateTime  @default(now())
+  executedAt         DateTime?
+
+  @@index([status])
+  @@map("timelock_proposals")
+}
+
