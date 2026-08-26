@@ -68,7 +68,7 @@ async function startServer() {
 
       return server;
    } catch (error) {
-      console.error('Failed to start server:', error);
+      logger.error({ error }, 'Failed to start server');
       await prisma.$disconnect();
       await disconnectRedis().catch(() => {});
       process.exit(1);
@@ -77,12 +77,12 @@ async function startServer() {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', error => {
-   console.error('Uncaught Exception:', error);
+   logger.fatal({ error }, 'Uncaught exception');
    process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+   logger.fatal({ reason, promise }, 'Unhandled promise rejection');
    process.exit(1);
 });
 
